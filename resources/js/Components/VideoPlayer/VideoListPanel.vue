@@ -1,4 +1,6 @@
 <script setup>
+import ApiLoadingState from '../ApiLoadingState.vue';
+
 defineProps({
     videos: {
         type: Array,
@@ -69,13 +71,11 @@ function selectVideo(video) {
 
         <div class="max-h-[70vh] overflow-y-auto p-2">
             <Transition name="fade" mode="out-in">
-                <div v-if="isVideoListLoading && videos.length === 0" key="loading" class="flex flex-col items-center justify-center space-y-3 px-5 py-12">
-                    <svg class="h-8 w-8 animate-spin text-[#0D9488]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span class="text-sm text-gray-500">Loading videos...</span>
-                </div>
+                <ApiLoadingState
+                    v-if="isVideoListLoading && videos.length === 0"
+                    key="loading"
+                    message="Loading videos..."
+                />
 
                 <div v-else-if="!hasAccessToken" key="no-token" class="px-5 py-8 text-center text-sm text-gray-500">
                     {{ noTokenMessage }}

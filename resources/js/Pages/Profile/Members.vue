@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 import AppHeader from '../../Components/AppHeader.vue';
+import ApiLoadingState from '../../Components/ApiLoadingState.vue';
 import { useApiAuth } from '../../Composables/auth/useApiAuth';
 
 const props = defineProps({
@@ -196,35 +197,48 @@ onMounted(() => {
                 <div class="border-t border-gray-200 pt-6">
                     <h2 class="text-base font-semibold text-gray-900">Members</h2>
 
-                    <div v-if="isLoadingMembers" class="mt-4 flex flex-col items-center justify-center space-y-3 px-5 py-8">
-                        <svg class="h-8 w-8 animate-spin text-[#0D9488]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span class="text-sm text-gray-500">Loading members...</span>
-                    </div>
+                    <Transition name="fade" mode="out-in">
+                        <ApiLoadingState
+                            v-if="isLoadingMembers"
+                            key="loading"
+                            message="Loading members..."
+                            container-class="mt-4 flex flex-col items-center justify-center space-y-3 px-5 py-8"
+                        />
 
-                    <div v-else-if="loadError !== ''" class="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {{ loadError }}
-                    </div>
+                        <div v-else-if="loadError !== ''" key="error" class="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            {{ loadError }}
+                        </div>
 
-                    <div v-else-if="members.length === 0" class="mt-4 rounded-lg border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-500">
-                        No members yet.
-                    </div>
+                        <div v-else-if="members.length === 0" key="empty" class="mt-4 rounded-lg border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-500">
+                            No members yet.
+                        </div>
 
-                    <div v-else class="mt-4 space-y-3">
-                        <article
-                            v-for="member in members"
-                            :key="member.id"
-                            class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"
-                        >
-                            <p class="truncate font-semibold text-gray-900">{{ member.name }}</p>
-                            <p class="truncate text-sm text-gray-500">{{ member.email }}</p>
-                            <p class="mt-1 text-xs uppercase tracking-wide text-gray-500">Mode: {{ member.access_mode }}</p>
-                        </article>
-                    </div>
+                        <div v-else key="list" class="mt-4 space-y-3">
+                            <article
+                                v-for="member in members"
+                                :key="member.id"
+                                class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"
+                            >
+                                <p class="truncate font-semibold text-gray-900">{{ member.name }}</p>
+                                <p class="truncate text-sm text-gray-500">{{ member.email }}</p>
+                                <p class="mt-1 text-xs uppercase tracking-wide text-gray-500">Mode: {{ member.access_mode }}</p>
+                            </article>
+                        </div>
+                    </Transition>
                 </div>
             </div>
         </section>
     </main>
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 import AppHeader from '../../Components/AppHeader.vue';
+import ApiLoadingState from '../../Components/ApiLoadingState.vue';
 import { useApiAuth } from '../../Composables/auth/useApiAuth';
 
 const props = defineProps({
@@ -234,13 +235,12 @@ onMounted(() => {
 
             <div class="space-y-6 rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm sm:p-8">
                 <Transition name="fade" mode="out-in">
-                    <div v-if="isLoadingData" key="loading" class="flex flex-col items-center justify-center space-y-3 px-5 py-10">
-                        <svg class="h-8 w-8 animate-spin text-[#0D9488]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span class="text-sm text-gray-500">Loading access data...</span>
-                    </div>
+                    <ApiLoadingState
+                        v-if="isLoadingData"
+                        key="loading"
+                        message="Loading access data..."
+                        container-class="flex flex-col items-center justify-center space-y-3 px-5 py-10"
+                    />
 
                     <div v-else-if="loadError !== ''" key="error" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                         {{ loadError }}
