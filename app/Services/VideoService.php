@@ -359,12 +359,12 @@ readonly class VideoService
         if ($disk !== 's3') {
             return $relativePath;
         }
-        $bucket = trim((string) config('filesystems.disks.s3.bucket', ''));
+        $bucket = trim((string) config('filesystems.disks.aws_production.bucket', ''));
 
         if ($bucket === '') {
             return $relativePath;
         }
-        $root = trim((string) config('filesystems.disks.s3.root', ''), '/');
+        $root = trim((string) config('filesystems.disks.aws_production.root', ''), '/');
         $normalizedRelativePath = trim($relativePath, '/');
         $fullPath = $root !== '' ? $root.'/'.$normalizedRelativePath : $normalizedRelativePath;
 
@@ -438,7 +438,7 @@ readonly class VideoService
             }
             $normalizedPath = substr($pathWithoutScheme, $firstSlashPosition + 1);
         }
-        $bucket = trim((string) config('filesystems.disks.s3.bucket', ''), '/');
+        $bucket = trim((string) config('filesystems.disks.aws_production.bucket', ''), '/');
 
         if ($bucket !== '') {
             $bucketWithSlash = $bucket.'/';
@@ -447,7 +447,7 @@ readonly class VideoService
                 $normalizedPath = substr($normalizedPath, strlen($bucketWithSlash));
             }
         }
-        $root = trim((string) config('filesystems.disks.s3.root', ''), '/');
+        $root = trim((string) config('filesystems.disks.aws_production.root', ''), '/');
 
         if ($root === '') {
             return ltrim($normalizedPath, '/');
