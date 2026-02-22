@@ -1,0 +1,953 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Sandbox API",
+        "description": "Authentication API documentation",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "/",
+            "description": "Current application host"
+        }
+    ],
+    "paths": {
+        "/api/v1/register": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Register a user",
+                "operationId": "authRegister",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Maksym"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "koctenko525@gmail.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "RootRoot123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Registered",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "data"
+                                        },
+                                        "data": {
+                                            "required": [
+                                                "user",
+                                                "access_token",
+                                                "refresh_token",
+                                                "token_type",
+                                                "expires_in"
+                                            ],
+                                            "properties": {
+                                                "user": {
+                                                    "required": [
+                                                        "id",
+                                                        "name",
+                                                        "email",
+                                                        "profile_image"
+                                                    ],
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 6
+                                                        },
+                                                        "name": {
+                                                            "type": "string",
+                                                            "example": "Maksym"
+                                                        },
+                                                        "email": {
+                                                            "type": "string",
+                                                            "format": "email",
+                                                            "example": "koctenko525@gmail.com"
+                                                        },
+                                                        "profile_image": {
+                                                            "type": "string",
+                                                            "example": "http://localhost/storage/profile_images/65f8f6f9c3_avatar.jpg",
+                                                            "nullable": true
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "access_token": {
+                                                    "type": "string",
+                                                    "example": "xxx"
+                                                },
+                                                "refresh_token": {
+                                                    "type": "string",
+                                                    "example": "xxx"
+                                                },
+                                                "token_type": {
+                                                    "type": "string",
+                                                    "example": "bearer"
+                                                },
+                                                "expires_in": {
+                                                    "type": "integer",
+                                                    "example": 3600
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "message",
+                                        "details"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "validation_error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Email is taken"
+                                        },
+                                        "details": {
+                                            "type": "array",
+                                            "items": {
+                                                "required": [
+                                                    "field",
+                                                    "messages"
+                                                ],
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string",
+                                                        "example": "email"
+                                                    },
+                                                    "messages": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string",
+                                                            "example": "Email is taken"
+                                                        }
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/login": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Login user",
+                "operationId": "authLogin",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "koctenko525@gmail.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "RootRoot123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "data"
+                                        },
+                                        "data": {
+                                            "required": [
+                                                "user",
+                                                "access_token",
+                                                "refresh_token",
+                                                "token_type",
+                                                "expires_in"
+                                            ],
+                                            "properties": {
+                                                "user": {
+                                                    "required": [
+                                                        "id",
+                                                        "name",
+                                                        "email",
+                                                        "profile_image"
+                                                    ],
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 6
+                                                        },
+                                                        "name": {
+                                                            "type": "string",
+                                                            "example": "Maksym"
+                                                        },
+                                                        "email": {
+                                                            "type": "string",
+                                                            "format": "email",
+                                                            "example": "koctenko525@gmail.com"
+                                                        },
+                                                        "profile_image": {
+                                                            "type": "string",
+                                                            "example": "http://localhost/storage/profile_images/65f8f6f9c3_avatar.jpg",
+                                                            "nullable": true
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "access_token": {
+                                                    "type": "string",
+                                                    "example": "xxx"
+                                                },
+                                                "refresh_token": {
+                                                    "type": "string",
+                                                    "example": "xxx"
+                                                },
+                                                "token_type": {
+                                                    "type": "string",
+                                                    "example": "bearer"
+                                                },
+                                                "expires_in": {
+                                                    "type": "integer",
+                                                    "example": 3600
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication failed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "message"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Invalid credentials"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "message",
+                                        "details"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "validation_error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The email field is required."
+                                        },
+                                        "details": {
+                                            "type": "array",
+                                            "items": {
+                                                "required": [
+                                                    "field",
+                                                    "messages"
+                                                ],
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string",
+                                                        "example": "email"
+                                                    },
+                                                    "messages": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string",
+                                                            "example": "The email field is required."
+                                                        }
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/refresh": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Refresh access token",
+                "operationId": "authRefresh",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "refresh_token"
+                                ],
+                                "properties": {
+                                    "refresh_token": {
+                                        "type": "string",
+                                        "example": "xxx"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Access token refreshed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "data"
+                                        },
+                                        "data": {
+                                            "required": [
+                                                "access_token",
+                                                "token_type",
+                                                "expires_in"
+                                            ],
+                                            "properties": {
+                                                "access_token": {
+                                                    "type": "string",
+                                                    "example": "xxx"
+                                                },
+                                                "token_type": {
+                                                    "type": "string",
+                                                    "example": "bearer"
+                                                },
+                                                "expires_in": {
+                                                    "type": "integer",
+                                                    "example": 3600
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Refresh token invalid",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "message"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Invalid or expired refresh token"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "message",
+                                        "details"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "validation_error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The refresh token field is required."
+                                        },
+                                        "details": {
+                                            "type": "array",
+                                            "items": {
+                                                "required": [
+                                                    "field",
+                                                    "messages"
+                                                ],
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string",
+                                                        "example": "refresh_token"
+                                                    },
+                                                    "messages": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string",
+                                                            "example": "The refresh token field is required."
+                                                        }
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/logout": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Logout current user",
+                "operationId": "authLogout",
+                "responses": {
+                    "200": {
+                        "description": "Logged out",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "message"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "info"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Successfully logged out"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "message"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/profile": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get current user profile",
+                "operationId": "authProfile",
+                "responses": {
+                    "200": {
+                        "description": "Current user profile",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "data"
+                                        },
+                                        "data": {
+                                            "required": [
+                                                "user"
+                                            ],
+                                            "properties": {
+                                                "user": {
+                                                    "required": [
+                                                        "id",
+                                                        "name",
+                                                        "email",
+                                                        "profile_image"
+                                                    ],
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 6
+                                                        },
+                                                        "name": {
+                                                            "type": "string",
+                                                            "example": "Maksym"
+                                                        },
+                                                        "email": {
+                                                            "type": "string",
+                                                            "format": "email",
+                                                            "example": "koctenko525@gmail.com"
+                                                        },
+                                                        "profile_image": {
+                                                            "type": "string",
+                                                            "example": "http://localhost/storage/profile_images/65f8f6f9c3_avatar.jpg",
+                                                            "nullable": true
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "message"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/profile/avatar": {
+            "post": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Upload or replace current user profile avatar",
+                "operationId": "authUpdateAvatar",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "profile_image"
+                                ],
+                                "properties": {
+                                    "profile_image": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Avatar uploaded",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "data"
+                                        },
+                                        "data": {
+                                            "required": [
+                                                "user"
+                                            ],
+                                            "properties": {
+                                                "user": {
+                                                    "required": [
+                                                        "id",
+                                                        "name",
+                                                        "email",
+                                                        "profile_image"
+                                                    ],
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 6
+                                                        },
+                                                        "name": {
+                                                            "type": "string",
+                                                            "example": "Maksym"
+                                                        },
+                                                        "email": {
+                                                            "type": "string",
+                                                            "format": "email",
+                                                            "example": "koctenko525@gmail.com"
+                                                        },
+                                                        "profile_image": {
+                                                            "type": "string",
+                                                            "example": "http://localhost/storage/profile_images/65f8f6f9c3_avatar.jpg",
+                                                            "nullable": true
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "message"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "message",
+                                        "details"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "validation_error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The profile image field is required."
+                                        },
+                                        "details": {
+                                            "type": "array",
+                                            "items": {
+                                                "required": [
+                                                    "field",
+                                                    "messages"
+                                                ],
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string",
+                                                        "example": "profile_image"
+                                                    },
+                                                    "messages": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string",
+                                                            "example": "The profile image field is required."
+                                                        }
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Delete current user profile avatar",
+                "operationId": "authDeleteAvatar",
+                "responses": {
+                    "200": {
+                        "description": "Avatar deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "data"
+                                        },
+                                        "data": {
+                                            "required": [
+                                                "user"
+                                            ],
+                                            "properties": {
+                                                "user": {
+                                                    "required": [
+                                                        "id",
+                                                        "name",
+                                                        "email",
+                                                        "profile_image"
+                                                    ],
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 6
+                                                        },
+                                                        "name": {
+                                                            "type": "string",
+                                                            "example": "Maksym"
+                                                        },
+                                                        "email": {
+                                                            "type": "string",
+                                                            "format": "email",
+                                                            "example": "koctenko525@gmail.com"
+                                                        },
+                                                        "profile_image": {
+                                                            "type": "string",
+                                                            "example": null,
+                                                            "nullable": true
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "type",
+                                        "message"
+                                    ],
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "example": "error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "description": "Paste access_token here",
+                "bearerFormat": "JWT",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Authentication",
+            "description": "Authentication endpoints"
+        },
+        {
+            "name": "Users",
+            "description": "User profile endpoints"
+        }
+    ]
+}
