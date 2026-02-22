@@ -457,7 +457,7 @@ export function useVideoPlayer() {
             isVideoListLoading.value = false;
             setPlayerSurfaceMode('message', {
                 title: 'No valid API token found',
-                description: 'Use API /api/v1/login to get access_token + refresh_token and store them in browser storage.',
+                description: 'Use API /api/v1/login to get access_token. Refresh token is handled via HttpOnly cookie.',
                 variant: 'error',
             });
             return;

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Web\LoginRequest;
 use App\Models\User;
 use App\Services\AuthService;
+use App\Services\RefreshTokenCookieService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +18,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly RefreshTokenCookieService $refreshTokenCookieService) {}
+
     public function showLogin(): InertiaResponse
     {
         return Inertia::render('Auth/Login', [
@@ -46,33 +49,36 @@ class AuthController extends Controller
         $request->session()->put('api_auth_tokens',
             $this->createApiAuthPayload(
                 user: $authSessionData->user,
-                refreshToken: $authSessionData->refreshToken,
             ),
         );
-        return redirect()->intended(route('player.home'));
+        return redirect()->intended(route('player.home'))->withCookie($this->refreshTokenCookieService->make($authSessionData->refreshToken));
     }
 
     public function logout(Request $request): RedirectResponse
     {
+        $user = $request->user();
+
+        if ($user instanceof User) {
+            $user->refreshTokens()->delete();
+        }
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login');
+        return redirect()->route('login')->withCookie($this->refreshTokenCookieService->forget());
     }
 
     /**
-     * @return array{access_token: string, refresh_token: string, token_type: string, expires_in: int}
+     * @return array{access_token: string, token_type: string, expires_in: int}
      */
-    private function createApiAuthPayload(User $user, string $refreshToken): array
+    private function createApiAuthPayload(User $user): array
     {
         /** @var JWTGuard $guard */
         $guard = auth('api');
 
         return [
             'access_token' => $guard->login($user),
-            'refresh_token' => $refreshToken,
             'token_type' => 'bearer',
             'expires_in' => $guard->factory()->getTTL() * 60,
         ];

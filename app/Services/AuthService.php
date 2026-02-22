@@ -48,11 +48,11 @@ class AuthService
         );
     }
 
-    public function handleRefreshToken(RefreshTokenData $refreshTokenData): string
+    public function handleRefreshToken(RefreshTokenData $refreshTokenData): AuthSessionData
     {
         $hashed = hash('sha256', $refreshTokenData->refreshToken);
 
-        $stored = RefreshToken::where('token', $hashed)->first();
+        $stored = RefreshToken::query()->where('token', $hashed)->first();
 
         if (! $stored || $stored->expires_at->isPast()) {
             throw new ApiException(
@@ -62,7 +62,18 @@ class AuthService
         }
         $user = $stored->user;
 
-        return auth('api')->login($user);
+        if (! $user instanceof User) {
+            throw new ApiException(
+                message: 'Invalid or expired refresh token',
+                status: Response::HTTP_UNAUTHORIZED,
+            );
+        }
+        $refreshToken = $this->issueRefreshToken($user);
+
+        return new AuthSessionData(
+            user: $user,
+            refreshToken: $refreshToken,
+        );
     }
 
     private function issueRefreshToken(User $user): string

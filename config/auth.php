@@ -116,4 +116,12 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    'refresh_cookie' => [
+        'ttl_minutes' => (int) env('AUTH_REFRESH_COOKIE_TTL_MINUTES', 43200),
+        'path' => env('AUTH_REFRESH_COOKIE_PATH', '/'),
+        'domain' => env('AUTH_REFRESH_COOKIE_DOMAIN', env('SESSION_DOMAIN')),
+        'secure' => env('AUTH_REFRESH_COOKIE_SECURE', env('SESSION_SECURE_COOKIE')),
+        'same_site' => env('AUTH_REFRESH_COOKIE_SAME_SITE', env('SESSION_SAME_SITE', 'lax')),
+    ],
+
 ];

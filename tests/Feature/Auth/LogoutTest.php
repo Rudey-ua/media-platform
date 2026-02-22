@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\RefreshToken;
 use App\Models\User;
+use App\Services\RefreshTokenCookieService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -33,7 +34,8 @@ class LogoutTest extends TestCase
             ->assertOk()
             ->assertJsonPath('type', 'info')
             ->assertJsonPath('message', 'Successfully logged out')
-            ->assertJsonMissingPath('data');
+            ->assertJsonMissingPath('data')
+            ->assertCookieExpired(RefreshTokenCookieService::COOKIE_NAME);
 
         foreach ($refreshTokens as $refreshToken) {
             $this->assertDatabaseMissing('refresh_tokens', [

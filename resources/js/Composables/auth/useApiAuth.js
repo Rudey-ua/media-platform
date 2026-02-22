@@ -4,26 +4,24 @@ import {
     accessTokenFromObject,
     isAccessTokenExpired,
     resolveAccessToken,
-    resolveRefreshToken,
 } from './tokenUtils';
 
 const API_BASE = window.location.origin;
 const ACCESS_TOKEN_STORAGE_KEY = 'hls_player_jwt_token';
-const REFRESH_TOKEN_STORAGE_KEY = 'hls_player_refresh_token';
 const BROWSER_TOKEN_STORAGE_KEYS = [
     ACCESS_TOKEN_STORAGE_KEY,
-    REFRESH_TOKEN_STORAGE_KEY,
     'access_token',
-    'refresh_token',
     'auth.access_token',
-    'auth.refresh_token',
     'api_access_token',
-    'api_refresh_token',
     'auth_token',
     'jwt',
     'jwt_token',
     'token',
+    'refresh_token',
+    'auth.refresh_token',
+    'api_refresh_token',
     'refreshToken',
+    'hls_player_refresh_token',
 ];
 
 function removeTokenKeysFromStorage(storage) {
@@ -44,8 +42,6 @@ export function useApiAuth() {
     const page = usePage();
     const accessToken = ref(null);
     const tokenSource = ref(null);
-    const refreshToken = ref(null);
-    const refreshTokenSource = ref(null);
     const refreshInFlight = ref(null);
     const authStatus = ref('Token lookup pending...');
 
@@ -64,22 +60,9 @@ export function useApiAuth() {
         }
     }
 
-    function updateRefreshToken(token, source) {
-        refreshToken.value = token;
-        refreshTokenSource.value = source;
-
-        try {
-            window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token);
-        } catch (_error) {
-            return;
-        }
-    }
-
     function clearAuthTokens() {
         accessToken.value = null;
-        refreshToken.value = null;
         tokenSource.value = null;
-        refreshTokenSource.value = null;
         authStatus.value = 'Logged out.';
 
         removeTokenKeysFromStorage(window.localStorage);
@@ -87,10 +70,6 @@ export function useApiAuth() {
     }
 
     async function refreshAccessToken() {
-        if (!refreshToken.value) {
-            return false;
-        }
-
         if (refreshInFlight.value) {
             return refreshInFlight.value;
         }
@@ -101,11 +80,8 @@ export function useApiAuth() {
                     method: 'POST',
                     headers: {
                         Accept: 'application/json',
-                        'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        refresh_token: refreshToken.value,
-                    }),
+                    credentials: 'include',
                 });
 
                 if (!response.ok) {
@@ -138,11 +114,6 @@ export function useApiAuth() {
     async function bootstrapAuth() {
         const authTokensPayload = page.props?.auth?.api_tokens || {};
         const resolvedToken = resolveAccessToken(authTokensPayload);
-        const resolvedRefreshToken = resolveRefreshToken(authTokensPayload);
-
-        if (resolvedRefreshToken && resolvedRefreshToken.token) {
-            updateRefreshToken(resolvedRefreshToken.token, resolvedRefreshToken.source);
-        }
 
         if (!resolvedToken || !resolvedToken.token) {
             const refreshed = await refreshAccessToken();
@@ -208,10 +179,8 @@ export function useApiAuth() {
 
     return {
         accessToken,
-        refreshToken,
         hasAccessToken,
         tokenSource,
-        refreshTokenSource,
         authStatus,
         bootstrapAuth,
         refreshAccessToken,

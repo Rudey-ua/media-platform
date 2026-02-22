@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\RefreshToken;
 use App\Models\User;
+use App\Services\RefreshTokenCookieService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -35,7 +36,8 @@ class RefreshTokenTest extends TestCase
                     'token_type',
                     'expires_in',
                 ],
-            ]);
+            ])
+            ->assertCookie(RefreshTokenCookieService::COOKIE_NAME);
     }
 
     public function test_refresh_fails_with_invalid_token(): void

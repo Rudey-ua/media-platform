@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Services\RefreshTokenCookieService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -28,11 +29,11 @@ class RegisterTest extends TestCase
                 'data' => [
                     'user' => ['id', 'name', 'email'],
                     'access_token',
-                    'refresh_token',
                     'token_type',
                     'expires_in',
                 ],
-            ]);
+            ])
+            ->assertCookie(RefreshTokenCookieService::COOKIE_NAME);
 
         $this->assertDatabaseHas('users', [
             'name' => $payload['name'],
