@@ -14,7 +14,9 @@ const page = usePage();
 const isCurrentProfilePage = computed(() => {
     const currentUrl = typeof page.url === 'string' ? page.url : '';
 
-    return currentUrl === props.profileUrl || currentUrl.startsWith(`${props.profileUrl}?`);
+    return currentUrl === props.profileUrl
+        || currentUrl.startsWith(`${props.profileUrl}?`)
+        || currentUrl.startsWith(`${props.profileUrl}/`);
 });
 </script>
 

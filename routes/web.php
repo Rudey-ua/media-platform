@@ -12,11 +12,14 @@ Route::middleware('guest')->group(function (): void {
 
 Route::middleware(['auth', 'role:owner|member'])->group(function (): void {
     Route::get('/', [PlayerController::class, 'index'])->name('player.home');
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+    Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
 });
 
 Route::middleware(['auth', 'role:owner'])->group(function (): void {
     Route::get('/video-upload', [PlayerController::class, 'upload'])->name('player.upload');
+    Route::get('/profile/members', [ProfileController::class, 'members'])->name('profile.members');
+    Route::get('/profile/video-access', [ProfileController::class, 'videoAccess'])->name('profile.video-access');
 });
 
 Route::middleware('auth')->group(function (): void {

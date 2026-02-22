@@ -21,6 +21,7 @@ Route::prefix('v1')->group(function () {
     Route::group(['middleware' => ['auth:api']], function () {
         Route::controller(UserController::class)->group(function () {
             Route::get('/profile', 'profile');
+            Route::patch('/profile', 'updateName');
             Route::post('/profile/avatar', 'updateAvatar');
             Route::delete('/profile/avatar', 'deleteAvatar');
         });

@@ -10,6 +10,15 @@ class UserService
 {
     use FileTrait;
 
+    public function updateName(User $user, string $name): User
+    {
+        $normalizedName = trim(preg_replace('/\s+/', ' ', $name) ?? $name);
+
+        $user->update(['name' => $normalizedName]);
+
+        return $user;
+    }
+
     public function updateProfileAvatar(User $user, ProfileAvatarData $data): User
     {
         if ($user->profile_image) {
