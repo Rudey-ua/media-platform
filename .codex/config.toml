@@ -1,4 +1,4 @@
 [mcp_servers.laravel-boost]
 command = "vendor/bin/sail"
 args = ["artisan", "boost:mcp"]
-cwd = "/Users/max/domains/sandbox-app"
+cwd = "/Users/max/domains/media-platform"
