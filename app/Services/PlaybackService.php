@@ -119,16 +119,14 @@ class PlaybackService
 
     private function buildPlaybackAssetUrl(string $videoId, int $viewerUserId, string $objectKey, DateTimeInterface $sessionExpiresAt): string
     {
-        $signedBaseUrl = URL::temporarySignedRoute(
+        return URL::temporarySignedRoute(
             name: 'videos.playback.asset',
             expiration: $sessionExpiresAt,
             parameters: [
                 'videoId' => $videoId,
                 'viewer_id' => $viewerUserId,
+                'path' => $objectKey,
             ]
         );
-        $separator = str_contains($signedBaseUrl, '?') ? '&' : '?';
-
-        return $signedBaseUrl.$separator.'path='.rawurlencode($objectKey);
     }
 }

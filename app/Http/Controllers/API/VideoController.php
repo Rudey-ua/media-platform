@@ -148,16 +148,13 @@ class VideoController extends Controller
         return response(
             content: $playbackPayload['playlist'],
             status: Response::HTTP_OK,
-            headers: [
-                'Content-Type' => 'application/vnd.apple.mpegurl',
-                'X-Playback-Session-Expires-At' => $playbackPayload['session_expires_at'],
-            ],
+            headers: $this->playbackHeaders($playbackPayload['session_expires_at']),
         );
     }
 
     public function playbackAsset(Request $request, string $videoId, VideoService $videoService): Response|RedirectResponse
     {
-        if (! $request->hasValidSignatureWhileIgnoring(['path'])) {
+        if (! $request->hasValidSignature()) {
             return ApiResponse::error(
                 message: 'Invalid playback signature',
                 status: Response::HTTP_FORBIDDEN,
@@ -195,13 +192,38 @@ class VideoController extends Controller
             return response(
                 content: $playbackAssetPayload['content'],
                 status: Response::HTTP_OK,
-                headers: [
-                    'Content-Type' => 'application/vnd.apple.mpegurl',
-                    'X-Playback-Session-Expires-At' => $playbackAssetPayload['session_expires_at'],
-                ],
+                headers: $this->playbackHeaders($playbackAssetPayload['session_expires_at']),
             );
         }
 
-        return redirect()->away($playbackAssetPayload['url'], Response::HTTP_TEMPORARY_REDIRECT);
+        return redirect()
+            ->away($playbackAssetPayload['url'], Response::HTTP_TEMPORARY_REDIRECT)
+            ->withHeaders($this->playbackCacheHeaders());
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function playbackHeaders(string $sessionExpiresAt): array
+    {
+        return array_merge(
+            [
+                'Content-Type' => 'application/vnd.apple.mpegurl',
+                'X-Playback-Session-Expires-At' => $sessionExpiresAt,
+            ],
+            $this->playbackCacheHeaders(),
+        );
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function playbackCacheHeaders(): array
+    {
+        return [
+            'Cache-Control' => 'private, no-store, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ];
     }
 }

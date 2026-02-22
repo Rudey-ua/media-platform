@@ -16,6 +16,7 @@ const API_BASE = window.location.origin;
 const AUTO_REFRESH_INTERVAL_MS = 10000;
 const PLAYBACK_SESSION_REFRESH_WINDOW_MS = 5 * 60 * 1000;
 const PLAYBACK_SESSION_RETRY_DELAY_MS = 10000;
+const PLAYBACK_SESSION_MAX_RETRY_ATTEMPTS = 6;
 const PROCESSING_STATUSES = new Set(['uploading', 'uploaded', 'processing']);
 const PLAYER_IDLE_TITLE = 'Select a video to begin playback';
 const PLAYER_IDLE_DESCRIPTION = '';
@@ -34,6 +35,7 @@ export function useVideoPlayer() {
     const isPlaybackLoading = ref(false);
     const refreshTimerId = ref(null);
     const playbackSessionRefreshTimerId = ref(null);
+    const playbackSessionRetryAttempts = ref(0);
     const isPlaybackSessionRefreshing = ref(false);
     const playerStatus = ref('');
     const surfaceMode = ref('idle');
@@ -103,6 +105,7 @@ export function useVideoPlayer() {
 
     function destroyPlayer() {
         clearPlaybackSessionRefreshTimer();
+        playbackSessionRetryAttempts.value = 0;
         isPlaybackSessionRefreshing.value = false;
         playbackEngine.destroy();
     }
@@ -205,6 +208,12 @@ export function useVideoPlayer() {
             return;
         }
 
+        if (playbackSessionRetryAttempts.value >= PLAYBACK_SESSION_MAX_RETRY_ATTEMPTS) {
+            return;
+        }
+
+        playbackSessionRetryAttempts.value += 1;
+
         playbackSessionRefreshTimerId.value = window.setTimeout(() => {
             refreshPlaybackSession({
                 reason: 'retry',
@@ -246,6 +255,7 @@ export function useVideoPlayer() {
             autoplay: playbackState.autoplay,
         });
 
+        playbackSessionRetryAttempts.value = 0;
         schedulePlaybackSessionRefresh(videoId, playbackPayload.sessionExpiresAt);
     }
 

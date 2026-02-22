@@ -40,7 +40,8 @@ class ProfileAvatarTest extends TestCase
         $this->assertNotNull($user->profile_image);
         $this->assertStringContainsString('avatar.jpg', $user->profile_image);
         Storage::disk('public')->assertExists('profile_images/'.$user->profile_image);
-        $this->assertStringContainsString('/storage/profile_images/', (string) $response->json('data.user.profile_image'));
+        $this->assertStringContainsString('/profile_images/', (string) $response->json('data.user.profile_image'));
+        $this->assertStringContainsString('expiration=', (string) $response->json('data.user.profile_image'));
     }
 
     public function test_uploading_avatar_removes_old_file(): void

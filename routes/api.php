@@ -49,5 +49,6 @@ Route::prefix('v1')->group(function () {
 
     Route::get('/videos/{videoId}/playback/asset', [VideoController::class, 'playbackAsset'])
         ->whereUuid('videoId')
+        ->middleware('throttle:1200,1')
         ->name('videos.playback.asset');
 });
