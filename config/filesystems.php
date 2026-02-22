@@ -57,6 +57,16 @@ return [
             'root' => env('AWS_BUCKET_ROOT_DIRECTORY'),
         ],
 
+        'aws_production' => [
+            'driver' => 's3',
+            'key' => env('AWS_PROD_ACCESS_KEY_ID'),
+            'secret' => env('AWS_PROD_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_PROD_DEFAULT_REGION'),
+            'bucket' => env('AWS_PROD_BUCKET'),
+            'visibility' => 'private',
+            'root' => env('AWS_PROD_BUCKET_ROOT_DIRECTORY'),
+        ],
+
         'digitalocean' => [
             'driver' => 's3',
             'key' => env('D_OCEAN_ACCESS_KEY_ID'),

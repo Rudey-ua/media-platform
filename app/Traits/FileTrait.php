@@ -8,10 +8,16 @@ trait FileTrait
 {
     public function getProfileImageUrl(?string $fileName): ?string
     {
+        if (!$fileName) {
+            return null;
+        }
         $filePath = $this->getImagePath($fileName, config('filesystems.paths.profile_images'));
-        return $filePath ? url(Storage::url($filePath)) : null;
-    }
 
+        if (!$filePath) {
+            return null;
+        }
+        return Storage::disk()->temporaryUrl($filePath, now()->addMinutes(15));
+    }
     public function uploadFile($file, string $path): string|false
     {
         $filename = uniqid('', true).'_'.str_replace(' ', '_', ($file->getClientOriginalName() ?? 'image'));
