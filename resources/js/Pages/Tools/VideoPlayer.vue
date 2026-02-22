@@ -14,6 +14,10 @@ const props = defineProps({
         type: String,
         required: true,
     },
+    canUploadVideo: {
+        type: Boolean,
+        required: true,
+    },
 });
 
 const {
@@ -49,6 +53,7 @@ const {
             <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
                 <h1 class="text-2xl font-semibold text-gray-900">Player</h1>
                 <Link
+                    v-if="props.canUploadVideo"
                     :href="props.videoUploadUrl"
                     class="inline-flex items-center justify-center rounded-lg bg-[#0D9488] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0F766E] active:bg-[#115E59] focus:outline focus:outline-[3px] focus:outline-[rgba(13,148,136,0.35)] focus:outline-offset-2"
                 >

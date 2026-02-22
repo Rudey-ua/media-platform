@@ -13,5 +13,7 @@ class DefaultAdminRoleSeeder extends Seeder
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('owner', 'web');
+        Role::findOrCreate('member', 'web');
     }
 }

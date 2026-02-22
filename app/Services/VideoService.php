@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use App\Enums\MemberVideoAccessMode;
 use App\Enums\VideoStatus;
 use App\Exceptions\ApiException;
 use App\Jobs\PublishVideoMessage;
 use App\Models\User;
 use App\Models\Video;
+use App\Models\VideoAccess;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
@@ -28,6 +31,8 @@ readonly class VideoService
      */
     public function initializeDirectUploadForUser(User $user, string $fileName, int $fileSize, string $contentType, ?string $title = null): array
     {
+        $this->ensureOwner($user);
+
         if ($fileSize < 1) {
             throw new ApiException(
                 message: 'Invalid file size.',
@@ -108,6 +113,8 @@ readonly class VideoService
 
     public function completeDirectUploadForUser(User $user, string $videoId, ?int $expectedFileSize = null): Video
     {
+        $this->ensureOwner($user);
+
         $video = $this->findForUser(user: $user, videoId: $videoId);
 
         if (! in_array($video->status, [VideoStatus::Uploading, VideoStatus::Uploaded], true)) {
@@ -151,6 +158,8 @@ readonly class VideoService
 
     public function uploadForUser(User $user, UploadedFile $videoFile): Video
     {
+        $this->ensureOwner($user);
+
         $relativePath = $this->storeOriginalVideoFile(videoFile: $videoFile);
 
         $video = Video::query()->create([
@@ -164,12 +173,35 @@ readonly class VideoService
 
     public function listForUser(User $user): Collection
     {
-        return $user->videos()->latest()->get();
+        if ($user->isOwner()) {
+            return $user->videos()->latest()->get();
+        }
+
+        if ($user->isMember()) {
+            return $this->memberAccessibleVideosQuery($user)->latest()->get();
+        }
+
+        throw new ApiException(
+            message: 'Forbidden',
+            status: Response::HTTP_FORBIDDEN,
+        );
     }
 
     public function findForUser(User $user, string $videoId): Video
     {
-        $video = $user->videos()->where('uuid', $videoId)->first();
+        $videoQuery = Video::query()->whereRaw('1 = 0');
+
+        if ($user->isOwner()) {
+            $videoQuery = $user->videos();
+        } elseif ($user->isMember()) {
+            $videoQuery = $this->memberAccessibleVideosQuery($user);
+        } else {
+            throw new ApiException(
+                message: 'Forbidden',
+                status: Response::HTTP_FORBIDDEN,
+            );
+        }
+        $video = $videoQuery->where('uuid', $videoId)->first();
 
         if (! $video instanceof Video) {
             throw new ApiException(
@@ -179,6 +211,38 @@ readonly class VideoService
         }
 
         return $video;
+    }
+
+    private function ensureOwner(User $user): void
+    {
+        if ($user->isOwner()) {
+            return;
+        }
+
+        throw new ApiException(
+            message: 'Only owners can upload videos',
+            status: Response::HTTP_FORBIDDEN,
+        );
+    }
+
+    private function memberAccessibleVideosQuery(User $member): Builder
+    {
+        $ownerId = $member->owner_id;
+
+        if (! is_int($ownerId)) {
+            return Video::query()->whereRaw('1 = 0');
+        }
+        $baseOwnerVideosQuery = Video::query()->where('user_id', $ownerId);
+        $memberAccessMode = $member->resolvedMemberVideoAccessMode();
+
+        if ($memberAccessMode === MemberVideoAccessMode::All) {
+            return $baseOwnerVideosQuery;
+        }
+
+        return $baseOwnerVideosQuery->whereIn('id', VideoAccess::query()
+            ->select('video_id')
+            ->where('member_id', $member->id)
+            ->where('owner_id', $ownerId));
     }
 
     public function getPlaybackPlaylistForUser(User $user, string $videoId): string

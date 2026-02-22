@@ -10,10 +10,13 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/login', [AuthController::class, 'login'])->name('login.store');
 });
 
-Route::middleware(['auth', 'role:admin'])->group(function (): void {
+Route::middleware(['auth', 'role:owner|member'])->group(function (): void {
     Route::get('/', [PlayerController::class, 'index'])->name('player.home');
-    Route::get('/video-upload', [PlayerController::class, 'upload'])->name('player.upload');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+});
+
+Route::middleware(['auth', 'role:owner'])->group(function (): void {
+    Route::get('/video-upload', [PlayerController::class, 'upload'])->name('player.upload');
 });
 
 Route::middleware('auth')->group(function (): void {

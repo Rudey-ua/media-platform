@@ -35,9 +35,9 @@ class AuthController extends Controller
             return back()->withErrors(['email' => 'Invalid credentials'])->onlyInput('email');
         }
 
-        if (! $authSessionData->user->hasRole('admin')) {
+        if (! $authSessionData->user->hasAnyRole(['owner', 'member'])) {
             $authSessionData->user->refreshTokens()->delete();
-            return back()->withErrors(['email' => 'Access is allowed only for admin users'])->onlyInput('email');
+            return back()->withErrors(['email' => 'Access is allowed only for owner and member users'])->onlyInput('email');
         }
         Auth::guard('web')->login($authSessionData->user, $request->boolean('remember'));
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\API\MemberController;
 use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\VideoController;
 use App\Http\Controllers\API\WebhookController;
@@ -30,6 +31,13 @@ Route::prefix('v1')->group(function () {
             Route::post('/videos', 'store');
             Route::get('/videos', 'index');
             Route::get('/videos/{videoId}', 'show')->whereUuid('videoId');
+        });
+
+        Route::controller(MemberController::class)->group(function () {
+            Route::get('/members', 'index');
+            Route::post('/members', 'store');
+            Route::patch('/members/{memberId}/access-mode', 'updateAccessMode')->whereNumber('memberId');
+            Route::put('/members/{memberId}/video-access', 'syncVideoAccess')->whereNumber('memberId');
         });
     });
     Route::post('/webhooks/video-encoding', [WebhookController::class, 'handle']);

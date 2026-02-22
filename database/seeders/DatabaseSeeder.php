@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             DefaultAdminRoleSeeder::class,
+            ThreeOwnersSeeder::class,
         ]);
 
         // User::factory(10)->create();
