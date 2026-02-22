@@ -10,6 +10,35 @@ import {
 const API_BASE = window.location.origin;
 const ACCESS_TOKEN_STORAGE_KEY = 'hls_player_jwt_token';
 const REFRESH_TOKEN_STORAGE_KEY = 'hls_player_refresh_token';
+const BROWSER_TOKEN_STORAGE_KEYS = [
+    ACCESS_TOKEN_STORAGE_KEY,
+    REFRESH_TOKEN_STORAGE_KEY,
+    'access_token',
+    'refresh_token',
+    'auth.access_token',
+    'auth.refresh_token',
+    'api_access_token',
+    'api_refresh_token',
+    'auth_token',
+    'jwt',
+    'jwt_token',
+    'token',
+    'refreshToken',
+];
+
+function removeTokenKeysFromStorage(storage) {
+    if (!storage) {
+        return;
+    }
+
+    for (const key of BROWSER_TOKEN_STORAGE_KEYS) {
+        try {
+            storage.removeItem(key);
+        } catch (_error) {
+            continue;
+        }
+    }
+}
 
 export function useApiAuth() {
     const page = usePage();
@@ -44,6 +73,17 @@ export function useApiAuth() {
         } catch (_error) {
             return;
         }
+    }
+
+    function clearAuthTokens() {
+        accessToken.value = null;
+        refreshToken.value = null;
+        tokenSource.value = null;
+        refreshTokenSource.value = null;
+        authStatus.value = 'Logged out.';
+
+        removeTokenKeysFromStorage(window.localStorage);
+        removeTokenKeysFromStorage(window.sessionStorage);
     }
 
     async function refreshAccessToken() {
@@ -176,5 +216,6 @@ export function useApiAuth() {
         bootstrapAuth,
         refreshAccessToken,
         fetchWithAuthorization,
+        clearAuthTokens,
     };
 }

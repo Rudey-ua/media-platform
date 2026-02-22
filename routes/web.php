@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Web\AuthController;
 use App\Http\Controllers\Web\PlayerController;
+use App\Http\Controllers\Web\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function (): void {
@@ -12,6 +13,7 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware(['auth', 'role:admin'])->group(function (): void {
     Route::get('/', [PlayerController::class, 'index'])->name('player.home');
     Route::get('/video-upload', [PlayerController::class, 'upload'])->name('player.upload');
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
 });
 
 Route::middleware('auth')->group(function (): void {

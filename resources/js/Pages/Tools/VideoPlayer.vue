@@ -10,6 +10,10 @@ const props = defineProps({
         type: String,
         required: true,
     },
+    profileUrl: {
+        type: String,
+        required: true,
+    },
 });
 
 const {
@@ -39,7 +43,7 @@ const {
     <Head title="HLS Player" />
 
     <main class="min-h-screen bg-gray-50">
-        <AppHeader />
+        <AppHeader :profile-url="props.profileUrl" />
 
         <section class="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
             <div class="mb-6 flex flex-wrap items-center justify-between gap-4">

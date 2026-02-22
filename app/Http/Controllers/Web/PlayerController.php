@@ -12,6 +12,7 @@ class PlayerController extends Controller
     {
         return Inertia::render('Tools/VideoPlayer', [
             'videoUploadUrl' => route('player.upload', absolute: false),
+            'profileUrl' => route('profile.edit', absolute: false),
         ]);
     }
 
@@ -19,6 +20,7 @@ class PlayerController extends Controller
     {
         return Inertia::render('Tools/VideoUpload', [
             'videoPlayerUrl' => route('player.home', absolute: false),
+            'profileUrl' => route('profile.edit', absolute: false),
         ]);
     }
 }

@@ -9,6 +9,10 @@ const props = defineProps({
         type: String,
         required: true,
     },
+    profileUrl: {
+        type: String,
+        required: true,
+    },
 });
 
 const {
@@ -205,7 +209,7 @@ function handleDrop(event) {
     <Head title="Video Upload" />
 
     <main class="min-h-screen bg-gray-50">
-        <AppHeader />
+        <AppHeader :profile-url="props.profileUrl" />
 
         <section class="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
             <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
