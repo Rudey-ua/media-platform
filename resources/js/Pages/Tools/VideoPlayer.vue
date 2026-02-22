@@ -1,5 +1,6 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
+import AppHeader from '../../Components/AppHeader.vue';
 import PlayerSurfacePanel from '../../Components/VideoPlayer/PlayerSurfacePanel.vue';
 import VideoListPanel from '../../Components/VideoPlayer/VideoListPanel.vue';
 import { useVideoPlayer } from '../../Composables/useVideoPlayer';
@@ -38,17 +39,7 @@ const {
     <Head title="HLS Player" />
 
     <main class="min-h-screen bg-gray-50">
-        <header class="border-b border-gray-200 bg-white">
-            <div class="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-                <div class="flex items-center gap-2">
-                    <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-600">
-                        <span class="text-sm font-semibold text-white">C</span>
-                    </div>
-                    <span class="font-semibold text-gray-900">Converto</span>
-                </div>
-
-            </div>
-        </header>
+        <AppHeader />
 
         <section class="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
             <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
