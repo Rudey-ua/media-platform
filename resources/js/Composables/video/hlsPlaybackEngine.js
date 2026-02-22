@@ -1,6 +1,40 @@
 import Hls from 'hls.js';
 
-export function createHlsPlaybackEngine({ getVideoElement, onFatalError }) {
+function extractHttpStatusCode(errorData) {
+    const responseCode = errorData?.response?.code ?? errorData?.response?.status;
+    const parsedCode = Number(responseCode);
+
+    return Number.isFinite(parsedCode) ? parsedCode : null;
+}
+
+async function ensureMetadataLoaded(videoElement) {
+    if (!(videoElement instanceof HTMLVideoElement)) {
+        return;
+    }
+
+    if (videoElement.readyState >= 1) {
+        return;
+    }
+
+    await new Promise((resolve) => {
+        const onLoadedMetadata = () => {
+            videoElement.removeEventListener('loadedmetadata', onLoadedMetadata);
+            videoElement.removeEventListener('error', onError);
+            resolve();
+        };
+
+        const onError = () => {
+            videoElement.removeEventListener('loadedmetadata', onLoadedMetadata);
+            videoElement.removeEventListener('error', onError);
+            resolve();
+        };
+
+        videoElement.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
+        videoElement.addEventListener('error', onError, { once: true });
+    });
+}
+
+export function createHlsPlaybackEngine({ getVideoElement, onFatalError, onPlaybackSessionExpired }) {
     let hlsInstance = null;
     let playlistBlobUrl = null;
 
@@ -24,8 +58,12 @@ export function createHlsPlaybackEngine({ getVideoElement, onFatalError }) {
         }
     }
 
-    async function attachPlaylist(playlistText) {
+    async function attachPlaylist(playlistText, options = {}) {
         destroy();
+
+        const requestedResumeTime = Number(options.resumeTime);
+        const resumeTime = Number.isFinite(requestedResumeTime) && requestedResumeTime > 0 ? requestedResumeTime : 0;
+        const autoplay = options.autoplay !== false;
 
         playlistBlobUrl = URL.createObjectURL(
             new Blob([playlistText], { type: 'application/vnd.apple.mpegurl' }),
@@ -50,6 +88,23 @@ export function createHlsPlaybackEngine({ getVideoElement, onFatalError }) {
 
                 hls.on(Hls.Events.ERROR, (_event, data) => {
                     if (!data || !data.fatal) {
+                        return;
+                    }
+                    const statusCode = extractHttpStatusCode(data);
+
+                    if (statusCode === 401 || statusCode === 403) {
+                        if (!isResolved) {
+                            reject(new Error('Playback session expired.'));
+                            return;
+                        }
+
+                        const playbackState = {
+                            resumeTime: Number.isFinite(currentVideoElement.currentTime) ? currentVideoElement.currentTime : 0,
+                            autoplay: !currentVideoElement.paused,
+                        };
+
+                        destroy();
+                        onPlaybackSessionExpired?.(playbackState);
                         return;
                     }
 
@@ -97,9 +152,22 @@ export function createHlsPlaybackEngine({ getVideoElement, onFatalError }) {
             throw new Error('HLS playback is not supported in this browser.');
         }
 
-        await currentVideoElement.play().catch(() => {
-            return null;
-        });
+        if (resumeTime > 0) {
+            await ensureMetadataLoaded(currentVideoElement);
+
+            if (Number.isFinite(currentVideoElement.duration)) {
+                const safeResumeTime = Math.min(Math.max(0, resumeTime), Math.max(0, currentVideoElement.duration - 0.25));
+                currentVideoElement.currentTime = safeResumeTime;
+            } else {
+                currentVideoElement.currentTime = resumeTime;
+            }
+        }
+
+        if (autoplay) {
+            await currentVideoElement.play().catch(() => {
+                return null;
+            });
+        }
     }
 
     return {

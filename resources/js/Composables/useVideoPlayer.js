@@ -14,6 +14,8 @@ import { requestVideoPlaylist, requestVideosList } from './video/videoApi';
 
 const API_BASE = window.location.origin;
 const AUTO_REFRESH_INTERVAL_MS = 10000;
+const PLAYBACK_SESSION_REFRESH_WINDOW_MS = 5 * 60 * 1000;
+const PLAYBACK_SESSION_RETRY_DELAY_MS = 10000;
 const PROCESSING_STATUSES = new Set(['uploading', 'uploaded', 'processing']);
 const PLAYER_IDLE_TITLE = 'Select a video to begin playback';
 const PLAYER_IDLE_DESCRIPTION = '';
@@ -31,6 +33,8 @@ export function useVideoPlayer() {
     const isVideoListLoading = ref(true);
     const isPlaybackLoading = ref(false);
     const refreshTimerId = ref(null);
+    const playbackSessionRefreshTimerId = ref(null);
+    const isPlaybackSessionRefreshing = ref(false);
     const playerStatus = ref('');
     const surfaceMode = ref('idle');
     const surfaceVariant = ref(null);
@@ -77,6 +81,15 @@ export function useVideoPlayer() {
         getVideoElement() {
             return videoElement.value;
         },
+        onPlaybackSessionExpired(playbackState) {
+            refreshPlaybackSession({
+                reason: 'segment-access-expired',
+                force: true,
+                playbackState,
+            }).catch(() => {
+                return null;
+            });
+        },
         onFatalError(errorMessage) {
             playingVideoId.value = null;
             playerStatus.value = errorMessage;
@@ -89,6 +102,8 @@ export function useVideoPlayer() {
     });
 
     function destroyPlayer() {
+        clearPlaybackSessionRefreshTimer();
+        isPlaybackSessionRefreshing.value = false;
         playbackEngine.destroy();
     }
 
@@ -130,6 +145,156 @@ export function useVideoPlayer() {
         if (refreshTimerId.value !== null) {
             window.clearInterval(refreshTimerId.value);
             refreshTimerId.value = null;
+        }
+    }
+
+    function clearPlaybackSessionRefreshTimer() {
+        if (playbackSessionRefreshTimerId.value !== null) {
+            window.clearTimeout(playbackSessionRefreshTimerId.value);
+            playbackSessionRefreshTimerId.value = null;
+        }
+    }
+
+    function parseSessionExpiry(sessionExpiresAt) {
+        if (typeof sessionExpiresAt !== 'string' || sessionExpiresAt.trim() === '') {
+            return null;
+        }
+
+        const expiresAtTimestamp = Date.parse(sessionExpiresAt);
+
+        if (!Number.isFinite(expiresAtTimestamp)) {
+            return null;
+        }
+
+        return expiresAtTimestamp;
+    }
+
+    function schedulePlaybackSessionRefresh(videoId, sessionExpiresAt) {
+        clearPlaybackSessionRefreshTimer();
+
+        if (typeof videoId !== 'string' || videoId === '') {
+            return;
+        }
+
+        const expiresAtTimestamp = parseSessionExpiry(sessionExpiresAt);
+
+        if (expiresAtTimestamp === null) {
+            return;
+        }
+
+        const refreshAtTimestamp = Math.max(
+            Date.now() + 1000,
+            expiresAtTimestamp - PLAYBACK_SESSION_REFRESH_WINDOW_MS,
+        );
+        const delayMs = Math.max(0, refreshAtTimestamp - Date.now());
+
+        playbackSessionRefreshTimerId.value = window.setTimeout(() => {
+            refreshPlaybackSession({
+                reason: 'scheduled',
+                videoId,
+            }).catch(() => {
+                return null;
+            });
+        }, delayMs);
+    }
+
+    function schedulePlaybackSessionRetry(videoId) {
+        clearPlaybackSessionRefreshTimer();
+
+        if (typeof videoId !== 'string' || videoId === '') {
+            return;
+        }
+
+        playbackSessionRefreshTimerId.value = window.setTimeout(() => {
+            refreshPlaybackSession({
+                reason: 'retry',
+                videoId,
+            }).catch(() => {
+                return null;
+            });
+        }, PLAYBACK_SESSION_RETRY_DELAY_MS);
+    }
+
+    function currentPlaybackState() {
+        const currentVideoElement = videoElement.value;
+
+        if (!(currentVideoElement instanceof HTMLVideoElement)) {
+            return {
+                resumeTime: 0,
+                autoplay: true,
+            };
+        }
+
+        const elementCurrentTime = Number(currentVideoElement.currentTime);
+        const resumeTime = Number.isFinite(elementCurrentTime) && elementCurrentTime > 0 ? elementCurrentTime : 0;
+
+        return {
+            resumeTime,
+            autoplay: !currentVideoElement.paused,
+        };
+    }
+
+    async function fetchAndAttachPlaybackPlaylist(videoId, playbackState = { resumeTime: 0, autoplay: true }) {
+        const playbackPayload = await requestVideoPlaylist({
+            fetchWithAuthorization,
+            apiBase: API_BASE,
+            videoId,
+        });
+
+        await playbackEngine.attachPlaylist(playbackPayload.playlistText, {
+            resumeTime: playbackState.resumeTime,
+            autoplay: playbackState.autoplay,
+        });
+
+        schedulePlaybackSessionRefresh(videoId, playbackPayload.sessionExpiresAt);
+    }
+
+    async function refreshPlaybackSession({
+        reason = 'manual',
+        videoId = null,
+        force = false,
+        playbackState = null,
+    } = {}) {
+        const targetVideoId = typeof videoId === 'string' && videoId !== '' ? videoId : playingVideoId.value;
+
+        if (typeof targetVideoId !== 'string' || targetVideoId === '') {
+            return;
+        }
+
+        if (isPlaybackSessionRefreshing.value || (!force && isPlaybackLoading.value)) {
+            return;
+        }
+
+        isPlaybackSessionRefreshing.value = true;
+        const effectivePlaybackState = playbackState && typeof playbackState === 'object'
+            ? {
+                resumeTime: Number(playbackState.resumeTime) || 0,
+                autoplay: playbackState.autoplay !== false,
+            }
+            : currentPlaybackState();
+
+        try {
+            await fetchAndAttachPlaybackPlaylist(targetVideoId, effectivePlaybackState);
+            playingVideoId.value = targetVideoId;
+            selectedVideoId.value = targetVideoId;
+            playerStatus.value = 'Playing video';
+            setPlayerSurfaceMode('playing');
+        } catch (error) {
+            if (reason === 'scheduled' || reason === 'retry') {
+                schedulePlaybackSessionRetry(targetVideoId);
+                return;
+            }
+
+            destroyPlayer();
+            playingVideoId.value = null;
+            playerStatus.value = error instanceof Error ? error.message : 'Playback refresh failed.';
+            setPlayerSurfaceMode('message', {
+                title: 'Playback interrupted',
+                description: playerStatus.value,
+                variant: 'error',
+            });
+        } finally {
+            isPlaybackSessionRefreshing.value = false;
         }
     }
 
@@ -255,13 +420,7 @@ export function useVideoPlayer() {
         destroyPlayer();
 
         try {
-            const playlistText = await requestVideoPlaylist({
-                fetchWithAuthorization,
-                apiBase: API_BASE,
-                videoId: video.id,
-            });
-
-            await playbackEngine.attachPlaylist(playlistText);
+            await fetchAndAttachPlaybackPlaylist(video.id);
 
             playingVideoId.value = video.id;
             playerStatus.value = 'Playing video';
@@ -309,6 +468,7 @@ export function useVideoPlayer() {
 
     function handleBeforeUnload() {
         clearRefreshTimer();
+        clearPlaybackSessionRefreshTimer();
         destroyPlayer();
     }
 
@@ -325,6 +485,7 @@ export function useVideoPlayer() {
         }
 
         clearRefreshTimer();
+        clearPlaybackSessionRefreshTimer();
         destroyPlayer();
     });
 

@@ -8,13 +8,17 @@ use App\Services\HLS\PlaylistRewriter;
 use App\Services\HLS\ReferenceResolver;
 use App\Services\HLS\SignedUrlGenerator;
 use DateTimeInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 class PlaybackService
 {
-    private const int PLAYBACK_TTL_SECONDS = 1200;
+    private const int PLAYBACK_SESSION_TTL_SECONDS = 1800;
+
+    private const int PLAYBACK_ASSET_URL_TTL_SECONDS = 75;
 
     public function __construct(
         private readonly ObjectKeyNormalizer $objectKeyNormalizer,
@@ -23,7 +27,10 @@ class PlaybackService
         private readonly SignedUrlGenerator $signedUrlGenerator,
     ) {}
 
-    public function renderSignedPlaylist(string $storedPlaylistPath): string
+    /**
+     * @return array{playlist: string, session_expires_at: string}
+     */
+    public function renderSignedPlaylistForViewer(string $storedPlaylistPath, string $videoId, int $viewerUserId, ?DateTimeInterface $sessionExpiresAt = null): array
     {
         $playlistObjectKey = $this->normalizeStoredPlaylistPath($storedPlaylistPath);
 
@@ -41,25 +48,29 @@ class PlaybackService
                 status: Response::HTTP_CONFLICT,
             );
         }
-
         if (! is_string($playlistContent) || trim($playlistContent) === '') {
             throw new ApiException(
                 message: 'Playback is unavailable',
                 status: Response::HTTP_CONFLICT,
             );
         }
-
         $playlistDirectory = trim(dirname($playlistObjectKey), '/');
-        $expiresAt = now()->addSeconds(self::PLAYBACK_TTL_SECONDS);
+        $resolvedSessionExpiresAt = $sessionExpiresAt ?? now()->addSeconds(self::PLAYBACK_SESSION_TTL_SECONDS);
 
-        return $this->playlistRewriter->rewrite(
+        $playlist = $this->playlistRewriter->rewrite(
             playlistContent: $playlistContent,
             signReference: fn (string $reference): string => $this->signReference(
                 reference: $reference,
                 playlistDirectory: $playlistDirectory,
-                expiresAt: $expiresAt,
+                sessionExpiresAt: $resolvedSessionExpiresAt,
+                videoId: $videoId,
+                viewerUserId: $viewerUserId,
             ),
         );
+        return [
+            'playlist' => $playlist,
+            'session_expires_at' => Carbon::instance($resolvedSessionExpiresAt)->toIso8601String(),
+        ];
     }
 
     public function normalizeStoredPlaylistPath(string $storedPlaylistPath): string
@@ -67,26 +78,57 @@ class PlaybackService
         return $this->objectKeyNormalizer->normalize($storedPlaylistPath);
     }
 
-    private function signReference(string $reference, string $playlistDirectory, DateTimeInterface $expiresAt): string
+    public function issueTemporaryAssetUrl(string $objectKey): string
+    {
+        $normalizedObjectKey = $this->normalizeStoredPlaylistPath($objectKey);
+
+        if ($normalizedObjectKey === '') {
+            throw new ApiException(
+                message: 'Playback asset is unavailable',
+                status: Response::HTTP_CONFLICT,
+            );
+        }
+        return $this->signedUrlGenerator->sign(
+            objectKey: $normalizedObjectKey,
+            expiresAt: now()->addSeconds(self::PLAYBACK_ASSET_URL_TTL_SECONDS),
+        );
+    }
+
+    private function signReference(string $reference, string $playlistDirectory, DateTimeInterface $sessionExpiresAt, string $videoId, int $viewerUserId): string
     {
         $trimmedReference = trim($reference);
 
         if ($trimmedReference === '' || str_starts_with($trimmedReference, 'data:')) {
             return $trimmedReference;
         }
-        $objectKey = $this->referenceResolver->resolve(
-            reference: $trimmedReference,
-            playlistDirectory: $playlistDirectory,
-        );
+        $objectKey = $this->referenceResolver->resolve($trimmedReference, $playlistDirectory);
+
         if ($objectKey === '') {
             throw new ApiException(
                 message: 'Playback is unavailable',
                 status: Response::HTTP_CONFLICT,
             );
         }
-        return $this->signedUrlGenerator->sign(
+        return $this->buildPlaybackAssetUrl(
+            videoId: $videoId,
+            viewerUserId: $viewerUserId,
             objectKey: $objectKey,
-            expiresAt: $expiresAt,
+            sessionExpiresAt: $sessionExpiresAt,
         );
+    }
+
+    private function buildPlaybackAssetUrl(string $videoId, int $viewerUserId, string $objectKey, DateTimeInterface $sessionExpiresAt): string
+    {
+        $signedBaseUrl = URL::temporarySignedRoute(
+            name: 'videos.playback.asset',
+            expiration: $sessionExpiresAt,
+            parameters: [
+                'videoId' => $videoId,
+                'viewer_id' => $viewerUserId,
+            ]
+        );
+        $separator = str_contains($signedBaseUrl, '?') ? '&' : '?';
+
+        return $signedBaseUrl.$separator.'path='.rawurlencode($objectKey);
     }
 }

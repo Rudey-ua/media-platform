@@ -9,6 +9,7 @@ use App\Jobs\PublishVideoMessage;
 use App\Models\User;
 use App\Models\Video;
 use App\Models\VideoAccess;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
@@ -245,24 +246,75 @@ readonly class VideoService
             ->where('owner_id', $ownerId));
     }
 
-    public function getPlaybackPlaylistForUser(User $user, string $videoId): string
+    /**
+     * @return array{playlist: string, session_expires_at: string}
+     */
+    public function getPlaybackPlaylistForUser(User $user, string $videoId): array
     {
         $video = $this->findForUser(user: $user, videoId: $videoId);
+        $this->assertVideoReadyForPlayback($video);
 
-        if ($video->status !== VideoStatus::Ready) {
+        return $this->playbackService->renderSignedPlaylistForViewer(
+            storedPlaylistPath: (string) $video->hls_path,
+            videoId: $this->videoIdentifier($video),
+            viewerUserId: $user->id,
+        );
+    }
+
+    /**
+     * @return array{type: 'playlist', content: string, session_expires_at: string}|array{type: 'redirect', url: string}
+     */
+    public function resolvePlaybackAssetForViewer(string $videoId, int $viewerUserId, string $assetPath, ?DateTimeInterface $sessionExpiresAt = null,): array
+    {
+        $viewer = User::query()->find($viewerUserId);
+
+        if (! $viewer instanceof User) {
             throw new ApiException(
-                message: 'Video is not ready for playback',
+                message: 'Playback session is invalid',
+                status: Response::HTTP_FORBIDDEN,
+            );
+        }
+        $video = $this->findForUser(user: $viewer, videoId: $videoId);
+        $this->assertVideoReadyForPlayback($video);
+        $requestedObjectKey = $this->playbackService->normalizeStoredPlaylistPath($assetPath);
+
+        if ($requestedObjectKey === '') {
+            throw new ApiException(
+                message: 'Playback asset is unavailable',
                 status: Response::HTTP_CONFLICT,
             );
         }
-        if (! is_string($video->hls_path) || $video->hls_path === '') {
+        $playlistObjectKey = $this->playbackService->normalizeStoredPlaylistPath((string) $video->hls_path);
+        $playlistDirectory = trim(dirname($playlistObjectKey), '/');
+
+        if (
+            $playlistDirectory !== ''
+            && $requestedObjectKey !== $playlistObjectKey
+            && ! str_starts_with($requestedObjectKey, $playlistDirectory.'/')
+        ) {
             throw new ApiException(
-                message: 'Playback is unavailable',
-                status: Response::HTTP_CONFLICT,
+                message: 'Playback asset is unavailable',
+                status: Response::HTTP_FORBIDDEN,
             );
         }
 
-        return $this->playbackService->renderSignedPlaylist($video->hls_path);
+        if (str_ends_with(strtolower($requestedObjectKey), '.m3u8')) {
+            $nestedPlaylistPayload = $this->playbackService->renderSignedPlaylistForViewer(
+                storedPlaylistPath: $requestedObjectKey,
+                videoId: $this->videoIdentifier($video),
+                viewerUserId: $viewer->id,
+                sessionExpiresAt: $sessionExpiresAt,
+            );
+            return [
+                'type' => 'playlist',
+                'content' => $nestedPlaylistPayload['playlist'],
+                'session_expires_at' => $nestedPlaylistPayload['session_expires_at'],
+            ];
+        }
+        return [
+            'type' => 'redirect',
+            'url' => $this->playbackService->issueTemporaryAssetUrl($requestedObjectKey),
+        ];
     }
 
     public function handleEncodingWebhook(array $payload): Video
@@ -561,5 +613,22 @@ readonly class VideoService
         }
 
         return $normalizedHeaders;
+    }
+
+    private function assertVideoReadyForPlayback(Video $video): void
+    {
+        if ($video->status !== VideoStatus::Ready) {
+            throw new ApiException(
+                message: 'Video is not ready for playback',
+                status: Response::HTTP_CONFLICT,
+            );
+        }
+
+        if (! is_string($video->hls_path) || $video->hls_path === '') {
+            throw new ApiException(
+                message: 'Playback is unavailable',
+                status: Response::HTTP_CONFLICT,
+            );
+        }
     }
 }

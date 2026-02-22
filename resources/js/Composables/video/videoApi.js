@@ -92,5 +92,12 @@ export async function requestVideoPlaylist({ fetchWithAuthorization, apiBase, vi
         throw new Error('Received an empty playback playlist.');
     }
 
-    return playlistText;
+    const sessionExpiresAt = response.headers.get('x-playback-session-expires-at');
+
+    return {
+        playlistText,
+        sessionExpiresAt: typeof sessionExpiresAt === 'string' && sessionExpiresAt.trim() !== ''
+            ? sessionExpiresAt.trim()
+            : null,
+    };
 }

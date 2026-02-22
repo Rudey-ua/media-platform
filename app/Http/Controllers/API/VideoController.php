@@ -11,7 +11,9 @@ use App\Http\Responses\ApiResponse;
 use App\Models\User;
 use App\Models\Video;
 use App\Services\VideoService;
+use DateTimeImmutable;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
@@ -141,13 +143,65 @@ class VideoController extends Controller
                 status: Response::HTTP_UNAUTHORIZED,
             );
         }
+        $playbackPayload = $videoService->getPlaybackPlaylistForUser($user, $videoId);
 
         return response(
-            content: $videoService->getPlaybackPlaylistForUser($user, $videoId),
+            content: $playbackPayload['playlist'],
             status: Response::HTTP_OK,
             headers: [
                 'Content-Type' => 'application/vnd.apple.mpegurl',
+                'X-Playback-Session-Expires-At' => $playbackPayload['session_expires_at'],
             ],
         );
+    }
+
+    public function playbackAsset(Request $request, string $videoId, VideoService $videoService): Response|RedirectResponse
+    {
+        if (! $request->hasValidSignatureWhileIgnoring(['path'])) {
+            return ApiResponse::error(
+                message: 'Invalid playback signature',
+                status: Response::HTTP_FORBIDDEN,
+            );
+        }
+        $viewerId = $request->query('viewer_id');
+        $requestedAssetPath = $request->query('path');
+
+        if (! is_scalar($viewerId) || (int) $viewerId < 1) {
+            return ApiResponse::error(
+                message: 'Invalid playback signature',
+                status: Response::HTTP_FORBIDDEN,
+            );
+        }
+        if (! is_string($requestedAssetPath) || trim($requestedAssetPath) === '') {
+            return ApiResponse::error(
+                message: 'Playback asset path is missing',
+                status: Response::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
+        $expiresAtUnixTimestamp = $request->query('expires');
+
+        $sessionExpiresAt = is_scalar($expiresAtUnixTimestamp) && is_numeric((string) $expiresAtUnixTimestamp)
+            ? (new DateTimeImmutable)->setTimestamp((int) $expiresAtUnixTimestamp)
+            : null;
+
+        $playbackAssetPayload = $videoService->resolvePlaybackAssetForViewer(
+            videoId: $videoId,
+            viewerUserId: (int) $viewerId,
+            assetPath: $requestedAssetPath,
+            sessionExpiresAt: $sessionExpiresAt,
+        );
+
+        if ($playbackAssetPayload['type'] === 'playlist') {
+            return response(
+                content: $playbackAssetPayload['content'],
+                status: Response::HTTP_OK,
+                headers: [
+                    'Content-Type' => 'application/vnd.apple.mpegurl',
+                    'X-Playback-Session-Expires-At' => $playbackAssetPayload['session_expires_at'],
+                ],
+            );
+        }
+
+        return redirect()->away($playbackAssetPayload['url'], Response::HTTP_TEMPORARY_REDIRECT);
     }
 }
