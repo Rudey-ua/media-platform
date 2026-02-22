@@ -46,9 +46,5 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:api')->group(function () {
         Route::get('/videos/{videoId}/playback', [VideoController::class, 'playback'])->whereUuid('videoId');
     });
-
-    Route::get('/videos/{videoId}/playback/asset', [VideoController::class, 'playbackAsset'])
-        ->whereUuid('videoId')
-        ->middleware('throttle:1200,1')
-        ->name('videos.playback.asset');
+    Route::get('/videos/{videoId}/playback/asset', [VideoController::class, 'playbackAsset'])->whereUuid('videoId')->middleware('throttle:1200,1')->name('videos.playback.asset');
 });
