@@ -3,13 +3,14 @@
 namespace App\Services;
 
 use App\Exceptions\ApiException;
+use App\Services\HLS\ObjectKeyNormalizer;
 use App\Services\HLS\PlaylistRewriter;
 use App\Services\HLS\ReferenceResolver;
 use App\Services\HLS\SignedUrlGenerator;
-use App\Services\HLS\ObjectKeyNormalizer;
 use DateTimeInterface;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class PlaybackService
 {
@@ -32,7 +33,22 @@ class PlaybackService
                 status: Response::HTTP_CONFLICT,
             );
         }
-        $playlistContent = Storage::disk($this->objectKeyNormalizer->diskName())->get($playlistObjectKey);
+        try {
+            $playlistContent = Storage::disk($this->objectKeyNormalizer->diskName())->get($playlistObjectKey);
+        } catch (Throwable) {
+            throw new ApiException(
+                message: 'Playback is unavailable',
+                status: Response::HTTP_CONFLICT,
+            );
+        }
+
+        if (! is_string($playlistContent) || trim($playlistContent) === '') {
+            throw new ApiException(
+                message: 'Playback is unavailable',
+                status: Response::HTTP_CONFLICT,
+            );
+        }
+
         $playlistDirectory = trim(dirname($playlistObjectKey), '/');
         $expiresAt = now()->addSeconds(self::PLAYBACK_TTL_SECONDS);
 

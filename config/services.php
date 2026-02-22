@@ -36,6 +36,6 @@ return [
     ],
 
     'video_encoder' => [
-        'webhook_token' => env('VIDEO_ENCODER_WEBHOOK_TOKEN')
-    ]
+        'webhook_token' => env('VIDEO_ENCODER_WEBHOOK_TOKEN'),
+    ],
 ];

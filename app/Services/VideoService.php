@@ -356,15 +356,15 @@ readonly class VideoService
     {
         $disk = $this->storageDisk();
 
-        if ($disk !== 's3') {
+        if (! $this->isS3DriverDisk($disk)) {
             return $relativePath;
         }
-        $bucket = trim((string) config('filesystems.disks.aws_production.bucket', ''));
+        $bucket = trim($this->diskConfigValue($disk, 'bucket'));
 
         if ($bucket === '') {
             return $relativePath;
         }
-        $root = trim((string) config('filesystems.disks.aws_production.root', ''), '/');
+        $root = trim($this->diskConfigValue($disk, 'root'), '/');
         $normalizedRelativePath = trim($relativePath, '/');
         $fullPath = $root !== '' ? $root.'/'.$normalizedRelativePath : $normalizedRelativePath;
 
@@ -422,7 +422,7 @@ readonly class VideoService
     {
         $normalizedPath = ltrim($storedPath, '/');
 
-        if ($disk !== 's3') {
+        if (! $this->isS3DriverDisk($disk)) {
             return $normalizedPath;
         }
         if (Str::startsWith($normalizedPath, ['http://', 'https://'])) {
@@ -438,7 +438,7 @@ readonly class VideoService
             }
             $normalizedPath = substr($pathWithoutScheme, $firstSlashPosition + 1);
         }
-        $bucket = trim((string) config('filesystems.disks.aws_production.bucket', ''), '/');
+        $bucket = trim($this->diskConfigValue($disk, 'bucket'), '/');
 
         if ($bucket !== '') {
             $bucketWithSlash = $bucket.'/';
@@ -447,7 +447,7 @@ readonly class VideoService
                 $normalizedPath = substr($normalizedPath, strlen($bucketWithSlash));
             }
         }
-        $root = trim((string) config('filesystems.disks.aws_production.root', ''), '/');
+        $root = trim($this->diskConfigValue($disk, 'root'), '/');
 
         if ($root === '') {
             return ltrim($normalizedPath, '/');
@@ -464,6 +464,16 @@ readonly class VideoService
     private function storageDisk(): string
     {
         return (string) config('filesystems.default', 'local');
+    }
+
+    private function isS3DriverDisk(string $disk): bool
+    {
+        return $this->diskConfigValue($disk, 'driver') === 's3';
+    }
+
+    private function diskConfigValue(string $disk, string $key): string
+    {
+        return (string) config('filesystems.disks.'.$disk.'.'.$key, '');
     }
 
     private function videoIdentifier(Video $video): string

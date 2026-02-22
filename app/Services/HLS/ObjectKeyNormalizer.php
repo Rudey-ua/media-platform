@@ -12,7 +12,12 @@ class ObjectKeyNormalizer
 
     public function __construct()
     {
-        $this->diskName = (string) config('services.video_encoder.playback_disk', 's3');
+        $resolvedDiskName = trim((string) config('filesystems.default', 'local'));
+
+        if (! is_array(config('filesystems.disks.'.$resolvedDiskName))) {
+            $resolvedDiskName = 'local';
+        }
+        $this->diskName = $resolvedDiskName;
         $this->bucketPrefix = trim((string) config('filesystems.disks.'.$this->diskName.'.bucket', ''), '/');
         $this->rootPrefix = trim((string) config('filesystems.disks.'.$this->diskName.'.root', ''), '/');
     }
