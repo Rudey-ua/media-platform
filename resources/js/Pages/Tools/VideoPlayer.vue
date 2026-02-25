@@ -1,7 +1,9 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
 import AppHeader from '../../Components/AppHeader.vue';
+import DeleteVideoModal from '../../Components/VideoPlayer/DeleteVideoModal.vue';
 import PlayerSurfacePanel from '../../Components/VideoPlayer/PlayerSurfacePanel.vue';
+import RenameVideoModal from '../../Components/VideoPlayer/RenameVideoModal.vue';
 import VideoListPanel from '../../Components/VideoPlayer/VideoListPanel.vue';
 import { useVideoPlayer } from '../../Composables/useVideoPlayer';
 
@@ -32,13 +34,30 @@ const {
     surfaceDescription,
     surfaceBorderClass,
     canPlayVideo,
+    canDeleteVideo,
+    canRenameVideo,
     videoButtonClass,
     videoStatusBadgeClass,
     videoStatusBadgeLabel,
     formatDate,
     isVideoPlaying,
+    isVideoDeleting,
+    isVideoRenaming,
+    isDeleteModalOpen,
+    isDeleteInProgress,
+    pendingDeletionVideoTitle,
+    isRenameModalOpen,
+    isRenameInProgress,
+    pendingRenameVideoTitle,
+    videoRenameError,
     videoUnavailableMessage,
     handleVideoClick,
+    requestVideoDeletion,
+    requestVideoRename,
+    cancelVideoDeletion,
+    confirmVideoDeletion,
+    cancelVideoRename,
+    confirmVideoRename,
     setVideoElement,
 } = useVideoPlayer();
 </script>
@@ -80,7 +99,12 @@ const {
                         :no-token-message="noTokenMessage"
                         :empty-videos-message="emptyVideosMessage"
                         :is-playback-loading="isPlaybackLoading"
+                        :can-manage-videos="props.canUploadVideo"
                         :can-play-video="canPlayVideo"
+                        :can-delete-video="canDeleteVideo"
+                        :can-rename-video="canRenameVideo"
+                        :is-video-deleting="isVideoDeleting"
+                        :is-video-renaming="isVideoRenaming"
                         :video-button-class="videoButtonClass"
                         :video-status-badge-class="videoStatusBadgeClass"
                         :video-status-badge-label="videoStatusBadgeLabel"
@@ -88,9 +112,28 @@ const {
                         :is-video-playing="isVideoPlaying"
                         :video-unavailable-message="videoUnavailableMessage"
                         @select-video="handleVideoClick"
+                        @rename-video="requestVideoRename"
+                        @delete-video="requestVideoDeletion"
                     />
                 </div>
             </div>
         </section>
+
+        <DeleteVideoModal
+            :is-open="isDeleteModalOpen"
+            :video-title="pendingDeletionVideoTitle"
+            :is-deleting="isDeleteInProgress"
+            @cancel="cancelVideoDeletion"
+            @confirm="confirmVideoDeletion"
+        />
+
+        <RenameVideoModal
+            :is-open="isRenameModalOpen"
+            :initial-title="pendingRenameVideoTitle"
+            :error-message="videoRenameError"
+            :is-renaming="isRenameInProgress"
+            @cancel="cancelVideoRename"
+            @confirm="confirmVideoRename"
+        />
     </main>
 </template>

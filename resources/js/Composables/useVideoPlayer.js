@@ -10,7 +10,12 @@ import {
     videoStatusBadgeLabel as videoStatusBadgeLabelByState,
     videoUnavailableMessage as videoUnavailableMessageByStatus,
 } from './video/playerPresentation';
-import { requestVideoPlaylist, requestVideosList } from './video/videoApi';
+import {
+    requestVideoDeletion as requestVideoDeletionApi,
+    requestVideoPlaylist,
+    requestVideoTitleUpdate as requestVideoTitleUpdateApi,
+    requestVideosList,
+} from './video/videoApi';
 
 const API_BASE = window.location.origin;
 const AUTO_REFRESH_INTERVAL_MS = 10000;
@@ -33,6 +38,7 @@ export function useVideoPlayer() {
     const playingVideoId = ref(null);
     const isVideoListLoading = ref(true);
     const isPlaybackLoading = ref(false);
+    const deletingVideoId = ref(null);
     const refreshTimerId = ref(null);
     const playbackSessionRefreshTimerId = ref(null);
     const playbackSessionRetryAttempts = ref(0);
@@ -43,6 +49,10 @@ export function useVideoPlayer() {
     const surfaceTitle = ref(PLAYER_IDLE_TITLE);
     const surfaceDescription = ref(PLAYER_IDLE_DESCRIPTION);
     const videoElement = ref(null);
+    const pendingDeletionVideo = ref(null);
+    const pendingRenameVideo = ref(null);
+    const renamingVideoId = ref(null);
+    const videoRenameError = ref('');
 
     const noTokenMessage = 'No access token found.';
     const emptyVideosMessage = 'No videos yet.';
@@ -312,6 +322,55 @@ export function useVideoPlayer() {
         return canPlayVideoByStatus(video);
     }
 
+    function canDeleteVideo(video) {
+        return normalizeStatus(video?.status) !== 'processing';
+    }
+
+    function canRenameVideo(video) {
+        if (!video || (!Number.isInteger(video.id) && typeof video.id !== 'string')) {
+            return false;
+        }
+
+        return true;
+    }
+
+    function isVideoDeleting(video) {
+        if (!video || (!Number.isInteger(video.id) && typeof video.id !== 'string')) {
+            return false;
+        }
+
+        return deletingVideoId.value === String(video.id);
+    }
+
+    function isVideoRenaming(video) {
+        if (!video || (!Number.isInteger(video.id) && typeof video.id !== 'string')) {
+            return false;
+        }
+
+        return renamingVideoId.value === String(video.id);
+    }
+
+    const isDeleteModalOpen = computed(() => pendingDeletionVideo.value !== null);
+    const pendingDeletionVideoTitle = computed(() => {
+        if (!pendingDeletionVideo.value) {
+            return 'Untitled video';
+        }
+
+        const title = pendingDeletionVideo.value.title;
+
+        return typeof title === 'string' && title.trim() !== '' ? title.trim() : 'Untitled video';
+    });
+    const isDeleteInProgress = computed(() => deletingVideoId.value !== null);
+    const isRenameModalOpen = computed(() => pendingRenameVideo.value !== null);
+    const pendingRenameVideoTitle = computed(() => {
+        if (!pendingRenameVideo.value || typeof pendingRenameVideo.value.title !== 'string') {
+            return '';
+        }
+
+        return pendingRenameVideo.value.title;
+    });
+    const isRenameInProgress = computed(() => renamingVideoId.value !== null);
+
     function isVideoSelected(video) {
         return selectedVideoId.value === video.id;
     }
@@ -345,6 +404,43 @@ export function useVideoPlayer() {
         return videoUnavailableMessageByStatus(video.status);
     }
 
+    function replaceVideoInList(updatedVideo) {
+        if (!updatedVideo || typeof updatedVideo !== 'object') {
+            return;
+        }
+
+        const updatedVideoId = typeof updatedVideo.id === 'string'
+            ? updatedVideo.id
+            : String(updatedVideo.id ?? '');
+
+        if (updatedVideoId === '') {
+            return;
+        }
+
+        videos.value = videos.value.map((video) => {
+            if (String(video.id) !== updatedVideoId) {
+                return video;
+            }
+
+            return {
+                ...video,
+                ...updatedVideo,
+            };
+        });
+    }
+
+    function canRefreshVideoListSilently() {
+        if (pendingDeletionVideo.value !== null || pendingRenameVideo.value !== null) {
+            return false;
+        }
+
+        if (deletingVideoId.value !== null || renamingVideoId.value !== null) {
+            return false;
+        }
+
+        return true;
+    }
+
     function configureAutoRefresh() {
         clearRefreshTimer();
 
@@ -355,7 +451,7 @@ export function useVideoPlayer() {
         }
 
         refreshTimerId.value = window.setInterval(() => {
-            if (!isVideoListLoading.value && hasAccessToken.value) {
+            if (!isVideoListLoading.value && hasAccessToken.value && canRefreshVideoListSilently()) {
                 loadVideos({ silent: true });
             }
         }, AUTO_REFRESH_INTERVAL_MS);
@@ -449,6 +545,137 @@ export function useVideoPlayer() {
         }
     }
 
+    function requestVideoDeletion(video) {
+        if (!video || (!Number.isInteger(video.id) && typeof video.id !== 'string') || !canDeleteVideo(video)) {
+            return;
+        }
+
+        if (
+            deletingVideoId.value !== null
+            || renamingVideoId.value !== null
+            || pendingRenameVideo.value !== null
+            || isPlaybackLoading.value
+        ) {
+            return;
+        }
+
+        videoRenameError.value = '';
+        pendingDeletionVideo.value = {
+            id: String(video.id),
+            title: typeof video.title === 'string' ? video.title : null,
+        };
+    }
+
+    function cancelVideoDeletion() {
+        if (deletingVideoId.value !== null || renamingVideoId.value !== null) {
+            return;
+        }
+
+        pendingDeletionVideo.value = null;
+    }
+
+    function requestVideoRename(video) {
+        if (!canRenameVideo(video)) {
+            return;
+        }
+
+        if (
+            renamingVideoId.value !== null
+            || deletingVideoId.value !== null
+            || pendingDeletionVideo.value !== null
+            || isPlaybackLoading.value
+        ) {
+            return;
+        }
+
+        pendingRenameVideo.value = {
+            id: String(video.id),
+            title: typeof video.title === 'string' ? video.title : '',
+        };
+        videoRenameError.value = '';
+    }
+
+    function cancelVideoRename() {
+        if (renamingVideoId.value !== null || deletingVideoId.value !== null) {
+            return;
+        }
+
+        pendingRenameVideo.value = null;
+        videoRenameError.value = '';
+    }
+
+    async function confirmVideoRename(nextTitle) {
+        if (!pendingRenameVideo.value) {
+            return;
+        }
+
+        if (renamingVideoId.value !== null || deletingVideoId.value !== null || isPlaybackLoading.value) {
+            return;
+        }
+
+        const targetVideoId = pendingRenameVideo.value.id;
+        renamingVideoId.value = targetVideoId;
+        videoRenameError.value = '';
+
+        try {
+            const updatedVideo = await requestVideoTitleUpdateApi({
+                fetchWithAuthorization,
+                apiBase: API_BASE,
+                videoId: targetVideoId,
+                title: nextTitle,
+            });
+
+            replaceVideoInList(updatedVideo);
+            pendingRenameVideo.value = null;
+        } catch (error) {
+            videoRenameError.value = error instanceof Error ? error.message : 'Unable to rename video.';
+        } finally {
+            renamingVideoId.value = null;
+        }
+    }
+
+    async function confirmVideoDeletion() {
+        if (!pendingDeletionVideo.value) {
+            return;
+        }
+
+        if (deletingVideoId.value !== null || renamingVideoId.value !== null || isPlaybackLoading.value) {
+            return;
+        }
+
+        const targetVideoId = pendingDeletionVideo.value.id;
+        deletingVideoId.value = targetVideoId;
+
+        try {
+            await requestVideoDeletionApi({
+                fetchWithAuthorization,
+                apiBase: API_BASE,
+                videoId: targetVideoId,
+            });
+
+            if (playingVideoId.value === targetVideoId || selectedVideoId.value === targetVideoId) {
+                destroyPlayer();
+                playingVideoId.value = null;
+                selectedVideoId.value = null;
+                playerStatus.value = '';
+                setPlayerSurfaceMode('idle');
+            }
+
+            pendingDeletionVideo.value = null;
+            await loadVideos({ silent: true });
+        } catch (error) {
+            if (shouldShowListErrorState()) {
+                setPlayerSurfaceMode('message', {
+                    title: 'Unable to delete video',
+                    description: error instanceof Error ? error.message : 'Failed to delete video.',
+                    variant: 'error',
+                });
+            }
+        } finally {
+            deletingVideoId.value = null;
+        }
+    }
+
     async function bootstrapPlayerPage() {
         const isAuthenticatedForApi = await bootstrapAuth();
 
@@ -503,6 +730,13 @@ export function useVideoPlayer() {
         videos,
         isVideoListLoading,
         isPlaybackLoading,
+        isVideoDeleting,
+        isVideoRenaming,
+        isDeleteModalOpen,
+        isDeleteInProgress,
+        isRenameModalOpen,
+        isRenameInProgress,
+        videoRenameError,
         playerStatus,
         surfaceMode,
         surfaceTitle,
@@ -512,6 +746,10 @@ export function useVideoPlayer() {
         emptyVideosMessage,
         hasAccessToken,
         canPlayVideo,
+        canDeleteVideo,
+        canRenameVideo,
+        pendingDeletionVideoTitle,
+        pendingRenameVideoTitle,
         videoButtonClass,
         videoStatusBadgeClass,
         videoStatusBadgeLabel,
@@ -519,6 +757,12 @@ export function useVideoPlayer() {
         isVideoPlaying,
         videoUnavailableMessage,
         handleVideoClick,
+        requestVideoDeletion,
+        cancelVideoDeletion,
+        confirmVideoDeletion,
+        requestVideoRename,
+        cancelVideoRename,
+        confirmVideoRename,
         setVideoElement,
     };
 }

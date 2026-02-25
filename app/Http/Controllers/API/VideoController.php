@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CompleteVideoUploadRequest;
 use App\Http\Requests\InitiateUploadRequest;
 use App\Http\Requests\StoreVideoRequest;
+use App\Http\Requests\UpdateVideoTitleRequest;
 use App\Http\Responses\ApiResponse;
 use App\Models\User;
 use App\Models\Video;
@@ -124,6 +125,46 @@ class VideoController extends Controller
             );
         }
         $video = $videoService->findForUser(user: $user, videoId: $videoId);
+
+        return ApiResponse::success(
+            request: $request,
+            data: [
+                'video' => VideoData::fromModel($video),
+            ],
+        );
+    }
+
+    public function destroy(Request $request, string $videoId, VideoService $videoService): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (! $user instanceof User) {
+            return ApiResponse::error(
+                message: 'Unauthenticated',
+                status: Response::HTTP_UNAUTHORIZED,
+            );
+        }
+
+        $videoService->deleteForUser($user, $videoId);
+
+        return ApiResponse::info('Video deleted');
+    }
+
+    public function update(UpdateVideoTitleRequest $request, string $videoId, VideoService $videoService): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (! $user instanceof User) {
+            return ApiResponse::error(
+                message: 'Unauthenticated',
+                status: Response::HTTP_UNAUTHORIZED,
+            );
+        }
+        $video = $videoService->updateTitleForUser(
+            user: $user,
+            videoId: $videoId,
+            title: $request->title(),
+        );
 
         return ApiResponse::success(
             request: $request,

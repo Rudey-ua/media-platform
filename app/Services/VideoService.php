@@ -40,7 +40,6 @@ readonly class VideoService
                 status: Response::HTTP_UNPROCESSABLE_ENTITY,
             );
         }
-
         $video = Video::query()->create([
             'user_id' => $user->id,
             'title' => $title,
@@ -54,10 +53,7 @@ readonly class VideoService
             contentType: $contentType,
         );
 
-        $video->update([
-            'original_path' => $this->qualifyStoragePath(relativePath: $relativePath),
-        ]);
-
+        $video->update(['original_path' => $this->qualifyStoragePath(relativePath: $relativePath)]);
         $expiresAt = now()->addMinutes(self::TEMPORARY_UPLOAD_URL_TTL_MINUTES);
         $disk = $this->storageDisk();
 
@@ -77,7 +73,6 @@ readonly class VideoService
                 'message' => $throwable->getMessage(),
                 'exception_class' => $throwable::class,
             ]);
-
             $video->update([
                 'status' => VideoStatus::Failed,
                 'error_message' => 'Unable to generate upload URL.',
@@ -115,7 +110,6 @@ readonly class VideoService
     public function completeDirectUploadForUser(User $user, string $videoId, ?int $expectedFileSize = null): Video
     {
         $this->ensureOwner($user);
-
         $video = $this->findForUser(user: $user, videoId: $videoId);
 
         if (! in_array($video->status, [VideoStatus::Uploading, VideoStatus::Uploaded], true)) {
@@ -124,7 +118,6 @@ readonly class VideoService
                 status: Response::HTTP_CONFLICT,
             );
         }
-
         $disk = $this->storageDisk();
         $relativePath = $this->resolveRelativeStoragePath(
             storedPath: $video->original_path,
@@ -137,7 +130,6 @@ readonly class VideoService
                 status: Response::HTTP_CONFLICT,
             );
         }
-
         if (is_int($expectedFileSize) && $expectedFileSize > 0) {
             $actualFileSize = Storage::disk($disk)->size($relativePath);
 
@@ -148,7 +140,6 @@ readonly class VideoService
                 );
             }
         }
-
         $video->update([
             'status' => VideoStatus::Uploaded,
             'error_message' => null,
@@ -160,7 +151,6 @@ readonly class VideoService
     public function uploadForUser(User $user, UploadedFile $videoFile): Video
     {
         $this->ensureOwner($user);
-
         $relativePath = $this->storeOriginalVideoFile(videoFile: $videoFile);
 
         $video = Video::query()->create([
@@ -170,6 +160,29 @@ readonly class VideoService
         ]);
 
         return $this->dispatchVideoForEncoding($video);
+    }
+
+    public function deleteForUser(User $user, string $videoId): void
+    {
+        $this->ensureOwner($user, 'Only owners can delete videos');
+
+        $video = $this->findForUser(user: $user, videoId: $videoId);
+        $this->assertVideoCanBeDeleted($video);
+        $this->deleteOutputAssetsForVideo($video);
+        $video->delete();
+    }
+
+    public function updateTitleForUser(User $user, string $videoId, ?string $title): Video
+    {
+        $this->ensureOwner($user, 'Only owners can rename videos');
+
+        $video = $this->findForUser(user: $user, videoId: $videoId);
+
+        $video->update([
+            'title' => $title,
+        ]);
+
+        return $video->fresh() ?? $video;
     }
 
     public function listForUser(User $user): Collection
@@ -214,14 +227,13 @@ readonly class VideoService
         return $video;
     }
 
-    private function ensureOwner(User $user): void
+    private function ensureOwner(User $user, string $message = 'Only owners can upload videos'): void
     {
         if ($user->isOwner()) {
             return;
         }
-
         throw new ApiException(
-            message: 'Only owners can upload videos',
+            message: $message,
             status: Response::HTTP_FORBIDDEN,
         );
     }
@@ -264,7 +276,7 @@ readonly class VideoService
     /**
      * @return array{type: 'playlist', content: string, session_expires_at: string}|array{type: 'redirect', url: string}
      */
-    public function resolvePlaybackAssetForViewer(string $videoId, int $viewerUserId, string $assetPath, ?DateTimeInterface $sessionExpiresAt = null,): array
+    public function resolvePlaybackAssetForViewer(string $videoId, int $viewerUserId, string $assetPath, ?DateTimeInterface $sessionExpiresAt = null): array
     {
         $viewer = User::query()->find($viewerUserId);
 
@@ -297,7 +309,6 @@ readonly class VideoService
                 status: Response::HTTP_FORBIDDEN,
             );
         }
-
         if (str_ends_with(strtolower($requestedObjectKey), '.m3u8')) {
             $nestedPlaylistPayload = $this->playbackService->renderSignedPlaylistForViewer(
                 storedPlaylistPath: $requestedObjectKey,
@@ -305,12 +316,14 @@ readonly class VideoService
                 viewerUserId: $viewer->id,
                 sessionExpiresAt: $sessionExpiresAt,
             );
+
             return [
                 'type' => 'playlist',
                 'content' => $nestedPlaylistPayload['playlist'],
                 'session_expires_at' => $nestedPlaylistPayload['session_expires_at'],
             ];
         }
+
         return [
             'type' => 'redirect',
             'url' => $this->playbackService->issueTemporaryAssetUrl($requestedObjectKey),
@@ -368,10 +381,7 @@ readonly class VideoService
     {
         try {
             PublishVideoMessage::dispatch($this->buildEncodingPayload($video));
-
-            $video->update([
-                'status' => VideoStatus::Processing,
-            ]);
+            $video->update(['status' => VideoStatus::Processing]);
         } catch (Throwable $throwable) {
             Log::error('Unable to dispatch video encoding job', [
                 'video_id' => $this->videoIdentifier($video),
@@ -440,11 +450,11 @@ readonly class VideoService
     private function buildSourceVideoUrl(string $storedPath): string
     {
         $disk = $this->storageDisk();
+
         $relativePath = $this->resolveRelativeStoragePath(
             storedPath: $storedPath,
             disk: $disk,
         );
-
         if ($relativePath !== '') {
             try {
                 return Storage::disk($disk)->temporaryUrl(
@@ -460,7 +470,6 @@ readonly class VideoService
                 ]);
             }
         }
-
         $storageUrl = Storage::disk($disk)->url($relativePath);
 
         if (str_starts_with($storageUrl, 'http://') || str_starts_with($storageUrl, 'https://')) {
@@ -556,7 +565,6 @@ readonly class VideoService
         if (is_string($normalizedExtensionFromFileName) && $normalizedExtensionFromFileName !== '') {
             return $normalizedExtensionFromFileName;
         }
-
         $contentTypeToExtension = [
             'video/mp4' => 'mp4',
             'video/quicktime' => 'mov',
@@ -564,13 +572,11 @@ readonly class VideoService
             'video/x-matroska' => 'mkv',
             'video/mp2t' => 'ts',
         ];
-
         $normalizedContentType = strtolower(trim($contentType));
 
         if (array_key_exists($normalizedContentType, $contentTypeToExtension)) {
             return $contentTypeToExtension[$normalizedContentType];
         }
-
         $suffix = strtolower(trim(Str::after($normalizedContentType, '/')));
         $normalizedSuffix = preg_replace('/[^a-z0-9]/', '', $suffix);
 
@@ -585,30 +591,25 @@ readonly class VideoService
         if (! is_array($headers)) {
             return [];
         }
-
         $normalizedHeaders = [];
 
         foreach ($headers as $headerName => $headerValue) {
             if (! is_string($headerName) || trim($headerName) === '') {
                 continue;
             }
-
             if (is_array($headerValue)) {
                 $normalizedHeaderValues = array_filter($headerValue, static fn (mixed $value): bool => is_string($value) || is_numeric($value));
 
                 if ($normalizedHeaderValues === []) {
                     continue;
                 }
-
                 $normalizedHeaders[$headerName] = implode(', ', array_map(static fn (mixed $value): string => (string) $value, $normalizedHeaderValues));
 
                 continue;
             }
-
             if (! is_string($headerValue) && ! is_numeric($headerValue)) {
                 continue;
             }
-
             $normalizedHeaders[$headerName] = (string) $headerValue;
         }
 
@@ -628,6 +629,59 @@ readonly class VideoService
             throw new ApiException(
                 message: 'Playback is unavailable',
                 status: Response::HTTP_CONFLICT,
+            );
+        }
+    }
+
+    private function assertVideoCanBeDeleted(Video $video): void
+    {
+        if ($video->status !== VideoStatus::Processing) {
+            return;
+        }
+        throw new ApiException(
+            message: 'Video is processing and cannot be deleted yet.',
+            status: Response::HTTP_CONFLICT,
+        );
+    }
+
+    private function deleteOutputAssetsForVideo(Video $video): void
+    {
+        $rawPlaylistPath = (string) $video->hls_path;
+
+        if ($rawPlaylistPath === '') {
+            return;
+        }
+        $normalizedPlaylistPath = $this->playbackService->normalizeStoredPlaylistPath($rawPlaylistPath);
+
+        if ($normalizedPlaylistPath === '') {
+            return;
+        }
+        if (! str_starts_with($normalizedPlaylistPath, 'output_videos/')) {
+            throw new ApiException(
+                message: 'Video output path is invalid.',
+                status: Response::HTTP_CONFLICT,
+            );
+        }
+        $filesystem = Storage::disk($this->storageDisk());
+        $outputDirectory = trim(dirname($normalizedPlaylistPath), '/');
+
+        if ($outputDirectory === '' || $outputDirectory === '.') {
+            $filesystem->delete($normalizedPlaylistPath);
+
+            if ($filesystem->exists($normalizedPlaylistPath)) {
+                throw new ApiException(
+                    message: 'Unable to delete video from storage.',
+                    status: Response::HTTP_INTERNAL_SERVER_ERROR,
+                );
+            }
+            return;
+        }
+        $filesystem->deleteDirectory($outputDirectory);
+
+        if ($filesystem->exists($normalizedPlaylistPath)) {
+            throw new ApiException(
+                message: 'Unable to delete video from storage.',
+                status: Response::HTTP_INTERNAL_SERVER_ERROR,
             );
         }
     }

@@ -24,6 +24,7 @@ const {
     uploadStatus,
     uploadError,
     uploadProgress,
+    uploadTransferDetails,
     videoTitle,
     setSelectedFile,
     startUpload,
@@ -125,7 +126,7 @@ const progressLabel = computed(() => {
 
 const progressMessage = computed(() => {
     if (uploadUiStatus.value === 'uploading') {
-        return '';
+        return uploadTransferDetails.value;
     }
 
     if (uploadUiStatus.value === 'processing') {

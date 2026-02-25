@@ -32,6 +32,8 @@ Route::prefix('v1')->group(function () {
             Route::post('/videos', 'store');
             Route::get('/videos', 'index');
             Route::get('/videos/{videoId}', 'show')->whereUuid('videoId');
+            Route::patch('/videos/{videoId}', 'update')->whereUuid('videoId');
+            Route::delete('/videos/{videoId}', 'destroy')->whereUuid('videoId');
         });
 
         Route::controller(MemberController::class)->group(function () {

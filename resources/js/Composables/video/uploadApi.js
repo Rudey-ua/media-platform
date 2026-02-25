@@ -109,8 +109,13 @@ export async function uploadFileToSignedUrl({ file, uploadPayload, onProgress })
                 return;
             }
 
-            const progress = Math.min(99, Math.round((event.loaded / event.total) * 100));
-            onProgress(progress);
+            const percentage = Math.min(99, Math.round((event.loaded / event.total) * 100));
+            onProgress({
+                percentage,
+                loadedBytes: event.loaded,
+                totalBytes: event.total,
+                timestampMs: Date.now(),
+            });
         });
 
         xhr.addEventListener('error', () => {

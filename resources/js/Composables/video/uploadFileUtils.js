@@ -38,6 +38,50 @@ export function formatBytes(bytes) {
     return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
+export function formatTransferRate(bytesPerSecond) {
+    if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) {
+        return '0 KB/s';
+    }
+
+    const kilobytesPerSecond = bytesPerSecond / 1024;
+
+    if (kilobytesPerSecond < 1024) {
+        const roundedKilobytesPerSecond = kilobytesPerSecond >= 10
+            ? kilobytesPerSecond.toFixed(0)
+            : kilobytesPerSecond.toFixed(1);
+
+        return `${roundedKilobytesPerSecond} KB/s`;
+    }
+
+    const megabytesPerSecond = kilobytesPerSecond / 1024;
+    const roundedMegabytesPerSecond = megabytesPerSecond >= 10
+        ? megabytesPerSecond.toFixed(0)
+        : megabytesPerSecond.toFixed(1);
+
+    return `${roundedMegabytesPerSecond} MB/s`;
+}
+
+export function formatTimeRemaining(totalSeconds) {
+    if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+        return '0s left';
+    }
+
+    const roundedSeconds = Math.ceil(totalSeconds);
+    const hours = Math.floor(roundedSeconds / 3600);
+    const minutes = Math.floor((roundedSeconds % 3600) / 60);
+    const seconds = roundedSeconds % 60;
+
+    if (hours > 0) {
+        return `${hours}h ${minutes}m left`;
+    }
+
+    if (minutes > 0) {
+        return `${minutes}m ${seconds}s left`;
+    }
+
+    return `${seconds}s left`;
+}
+
 export function guessContentType(file) {
     if (typeof file?.type === 'string' && file.type.startsWith('video/')) {
         return file.type;

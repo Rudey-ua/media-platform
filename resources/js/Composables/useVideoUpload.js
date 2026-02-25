@@ -1,6 +1,11 @@
 import { computed, onMounted, ref } from 'vue';
 import { useApiAuth } from './auth/useApiAuth';
-import { formatBytes, validateVideoFile } from './video/uploadFileUtils';
+import {
+    formatBytes,
+    formatTimeRemaining,
+    formatTransferRate,
+    validateVideoFile,
+} from './video/uploadFileUtils';
 import {
     completeVideoUpload,
     initializeVideoUpload,
@@ -8,6 +13,7 @@ import {
 } from './video/uploadApi';
 
 const API_BASE = window.location.origin;
+const SPEED_SMOOTHING_FACTOR = 0.25;
 
 export function useVideoUpload() {
     const {
@@ -24,6 +30,8 @@ export function useVideoUpload() {
     const uploadStatus = ref('Select a video file to upload.');
     const uploadError = ref('');
     const uploadProgress = ref(0);
+    const uploadSpeedBytesPerSecond = ref(0);
+    const uploadEtaSeconds = ref(null);
     const uploadedVideoId = ref(null);
 
     const isUploading = computed(() => {
@@ -50,9 +58,25 @@ export function useVideoUpload() {
         return hasAccessToken.value && selectedFile.value instanceof File && !isUploading.value;
     });
 
+    const uploadTransferDetails = computed(() => {
+        if (uploadStage.value !== 'uploading' || uploadSpeedBytesPerSecond.value <= 0) {
+            return '';
+        }
+
+        const transferRate = formatTransferRate(uploadSpeedBytesPerSecond.value);
+
+        if (uploadEtaSeconds.value === null || !Number.isFinite(uploadEtaSeconds.value) || uploadEtaSeconds.value <= 0) {
+            return transferRate;
+        }
+
+        return `${transferRate} • ~${formatTimeRemaining(uploadEtaSeconds.value)}`;
+    });
+
     function setSelectedFile(file) {
         uploadError.value = '';
         uploadProgress.value = 0;
+        uploadSpeedBytesPerSecond.value = 0;
+        uploadEtaSeconds.value = null;
         uploadedVideoId.value = null;
 
         if (!(file instanceof File)) {
@@ -96,6 +120,8 @@ export function useVideoUpload() {
         uploadStatus.value = 'Requesting signed upload URL from Laravel...';
         uploadError.value = '';
         uploadProgress.value = 0;
+        uploadSpeedBytesPerSecond.value = 0;
+        uploadEtaSeconds.value = null;
         uploadedVideoId.value = null;
 
         try {
@@ -109,18 +135,65 @@ export function useVideoUpload() {
 
             uploadStage.value = 'uploading';
             uploadStatus.value = '';
+            let lastProgressSample = null;
+            let smoothedBytesPerSecond = 0;
 
             const etag = await uploadFileToSignedUrl({
                 file,
                 uploadPayload,
                 onProgress(progress) {
-                    uploadProgress.value = progress;
+                    if (!progress || typeof progress !== 'object') {
+                        return;
+                    }
+
+                    const uploadPercentage = Number(progress.percentage);
+
+                    if (Number.isFinite(uploadPercentage)) {
+                        uploadProgress.value = uploadPercentage;
+                    }
+
+                    const loadedBytes = Number(progress.loadedBytes);
+                    const totalBytes = Number(progress.totalBytes);
+                    const timestampMs = Number(progress.timestampMs);
+
+                    if (!Number.isFinite(loadedBytes) || !Number.isFinite(totalBytes) || !Number.isFinite(timestampMs)) {
+                        return;
+                    }
+
+                    if (lastProgressSample !== null) {
+                        const uploadedBytesDelta = loadedBytes - lastProgressSample.loadedBytes;
+                        const timeDeltaMs = timestampMs - lastProgressSample.timestampMs;
+
+                        if (uploadedBytesDelta > 0 && timeDeltaMs > 0) {
+                            const instantBytesPerSecond = (uploadedBytesDelta * 1000) / timeDeltaMs;
+
+                            smoothedBytesPerSecond = smoothedBytesPerSecond === 0
+                                ? instantBytesPerSecond
+                                : (smoothedBytesPerSecond * (1 - SPEED_SMOOTHING_FACTOR)) + (instantBytesPerSecond * SPEED_SMOOTHING_FACTOR);
+
+                            uploadSpeedBytesPerSecond.value = smoothedBytesPerSecond;
+                        }
+                    }
+
+                    lastProgressSample = {
+                        loadedBytes,
+                        timestampMs,
+                    };
+
+                    if (uploadSpeedBytesPerSecond.value > 0 && totalBytes > loadedBytes) {
+                        uploadEtaSeconds.value = Math.ceil((totalBytes - loadedBytes) / uploadSpeedBytesPerSecond.value);
+                        return;
+                    }
+
+                    uploadEtaSeconds.value = null;
                 },
             });
 
             uploadStage.value = 'finalizing';
             uploadStatus.value = 'Finalizing upload and dispatching encoding...';
             uploadProgress.value = 100;
+            uploadSpeedBytesPerSecond.value = 0;
+            uploadEtaSeconds.value = null;
 
             await completeVideoUpload({
                 fetchWithAuthorization,
@@ -134,10 +207,14 @@ export function useVideoUpload() {
             uploadStatus.value = '';
             uploadedVideoId.value = uploadPayload.videoId;
             uploadError.value = '';
+            uploadSpeedBytesPerSecond.value = 0;
+            uploadEtaSeconds.value = null;
         } catch (error) {
             uploadStage.value = 'failed';
             uploadStatus.value = 'Upload failed.';
             uploadError.value = error instanceof Error ? error.message : 'Unexpected upload error.';
+            uploadSpeedBytesPerSecond.value = 0;
+            uploadEtaSeconds.value = null;
         }
     }
 
@@ -161,6 +238,7 @@ export function useVideoUpload() {
         uploadStatus,
         uploadError,
         uploadProgress,
+        uploadTransferDetails,
         uploadedVideoId,
         videoTitle,
         setSelectedFile,
