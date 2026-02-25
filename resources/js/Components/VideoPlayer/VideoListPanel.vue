@@ -79,8 +79,12 @@ const props = defineProps({
 
 const emit = defineEmits(['select-video', 'delete-video', 'rename-video']);
 
+const ACTION_MENU_ESTIMATED_HEIGHT_PX = 96;
+
 const actionMenuVideoId = ref(null);
 const rootElement = ref(null);
+const scrollContainerElement = ref(null);
+const actionMenuPlacement = ref('down');
 
 watch(
     () => props.videos.map((video) => String(video.id)),
@@ -98,6 +102,30 @@ function resolveVideoId(video) {
 
 function closeActionMenu() {
     actionMenuVideoId.value = null;
+}
+
+function resolveActionMenuPlacement(triggerElement) {
+    if (!(triggerElement instanceof HTMLElement)) {
+        return 'down';
+    }
+
+    if (!(scrollContainerElement.value instanceof HTMLElement)) {
+        return 'down';
+    }
+
+    const triggerRect = triggerElement.getBoundingClientRect();
+    const containerRect = scrollContainerElement.value.getBoundingClientRect();
+    const availableSpaceBelow = containerRect.bottom - triggerRect.bottom;
+    const availableSpaceAbove = triggerRect.top - containerRect.top;
+
+    if (
+        availableSpaceBelow < ACTION_MENU_ESTIMATED_HEIGHT_PX
+        && availableSpaceAbove > availableSpaceBelow
+    ) {
+        return 'up';
+    }
+
+    return 'down';
 }
 
 function hasActions(video) {
@@ -118,14 +146,20 @@ function canDeleteAction(video) {
         && !props.isVideoRenaming(video);
 }
 
-function toggleActionMenu(video) {
+function toggleActionMenu(video, event) {
     const videoId = resolveVideoId(video);
 
     if (videoId === '') {
         return;
     }
 
-    actionMenuVideoId.value = actionMenuVideoId.value === videoId ? null : videoId;
+    if (actionMenuVideoId.value === videoId) {
+        closeActionMenu();
+        return;
+    }
+
+    actionMenuPlacement.value = resolveActionMenuPlacement(event?.currentTarget);
+    actionMenuVideoId.value = videoId;
 }
 
 function handleVideoCardClick(video) {
@@ -191,7 +225,7 @@ onBeforeUnmount(() => {
             <h2 class="text-base font-semibold text-gray-900">Your videos</h2>
         </div>
 
-        <div class="max-h-[70vh] overflow-y-auto p-2">
+        <div ref="scrollContainerElement" class="max-h-[70vh] overflow-y-auto p-2">
             <Transition name="fade" mode="out-in">
                 <ApiLoadingState
                     v-if="props.isVideoListLoading && props.videos.length === 0"
@@ -238,7 +272,7 @@ onBeforeUnmount(() => {
                                 ></p>
                             </button>
 
-                            <div v-if="hasActions(video)" class="absolute right-2 top-2 z-10">
+                            <div v-if="hasActions(video)" class="absolute right-2 top-1/2 z-10 -translate-y-1/2">
                                 <button
                                     type="button"
                                     class="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-200/70 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/50 disabled:cursor-not-allowed disabled:text-gray-300"
@@ -246,7 +280,7 @@ onBeforeUnmount(() => {
                                     aria-haspopup="menu"
                                     aria-label="Video actions"
                                     :disabled="props.isPlaybackLoading || props.isVideoDeleting(video) || props.isVideoRenaming(video)"
-                                    @click.stop="toggleActionMenu(video)"
+                                    @click.stop="toggleActionMenu(video, $event)"
                                 >
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                         <circle cx="6" cy="12" r="1.5" />
@@ -258,7 +292,12 @@ onBeforeUnmount(() => {
                                 <Transition name="menu-fade">
                                     <div
                                         v-if="actionMenuVideoId === resolveVideoId(video)"
-                                        class="absolute right-0 mt-1 w-40 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg ring-1 ring-black/5"
+                                        :class="[
+                                            'absolute right-0 w-40 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg ring-1 ring-black/5',
+                                            actionMenuPlacement === 'up'
+                                                ? 'bottom-full mb-1 origin-bottom-right'
+                                                : 'top-full mt-1 origin-top-right',
+                                        ]"
                                         role="menu"
                                     >
                                         <button
