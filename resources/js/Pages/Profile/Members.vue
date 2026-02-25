@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
 import AppHeader from '../../Components/AppHeader.vue';
 import ApiLoadingState from '../../Components/ApiLoadingState.vue';
+import { API_BASE } from '../../Composables/api/apiBase';
 import { useApiAuth } from '../../Composables/auth/useApiAuth';
 
 const props = defineProps({
@@ -19,8 +20,6 @@ const props = defineProps({
         required: true,
     },
 });
-
-const API_BASE = window.location.origin;
 
 const {
     bootstrapAuth,

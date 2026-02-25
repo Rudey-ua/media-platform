@@ -1,4 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { API_BASE } from './api/apiBase';
 import { useApiAuth } from './auth/useApiAuth';
 import { createHlsPlaybackEngine } from './video/hlsPlaybackEngine';
 import {
@@ -17,7 +18,6 @@ import {
     requestVideosList,
 } from './video/videoApi';
 
-const API_BASE = window.location.origin;
 const AUTO_REFRESH_INTERVAL_MS = 10000;
 const PLAYBACK_SESSION_REFRESH_WINDOW_MS = 5 * 60 * 1000;
 const PLAYBACK_SESSION_RETRY_DELAY_MS = 10000;
@@ -25,6 +25,19 @@ const PLAYBACK_SESSION_MAX_RETRY_ATTEMPTS = 6;
 const PROCESSING_STATUSES = new Set(['uploading', 'uploaded', 'processing']);
 const PLAYER_IDLE_TITLE = 'Select a video to begin playback';
 const PLAYER_IDLE_DESCRIPTION = '';
+
+function normalizeVideoId(rawValue) {
+    if (typeof rawValue === 'string') {
+        const trimmedValue = rawValue.trim();
+
+        return trimmedValue !== '' ? trimmedValue : null;
+    }
+
+    if (typeof rawValue === 'number' && Number.isFinite(rawValue)) {
+        return String(rawValue);
+    }
+    return null;
+}
 
 export function useVideoPlayer() {
     const {
@@ -37,6 +50,7 @@ export function useVideoPlayer() {
     const selectedVideoId = ref(null);
     const playingVideoId = ref(null);
     const isVideoListLoading = ref(true);
+    const isVideoListRefreshInFlight = ref(false);
     const isPlaybackLoading = ref(false);
     const deletingVideoId = ref(null);
     const refreshTimerId = ref(null);
@@ -53,6 +67,7 @@ export function useVideoPlayer() {
     const pendingRenameVideo = ref(null);
     const renamingVideoId = ref(null);
     const videoRenameError = ref('');
+    let loadVideosPromise = null;
 
     const noTokenMessage = 'No access token found.';
     const emptyVideosMessage = 'No videos yet.';
@@ -275,7 +290,7 @@ export function useVideoPlayer() {
         force = false,
         playbackState = null,
     } = {}) {
-        const targetVideoId = typeof videoId === 'string' && videoId !== '' ? videoId : playingVideoId.value;
+        const targetVideoId = normalizeVideoId(videoId) ?? playingVideoId.value;
 
         if (typeof targetVideoId !== 'string' || targetVideoId === '') {
             return;
@@ -323,31 +338,44 @@ export function useVideoPlayer() {
     }
 
     function canDeleteVideo(video) {
-        return normalizeStatus(video?.status) !== 'processing';
+        if (!video) {
+            return false;
+        }
+        return normalizeStatus(video.status) !== 'processing';
     }
 
     function canRenameVideo(video) {
-        if (!video || (!Number.isInteger(video.id) && typeof video.id !== 'string')) {
+        if (!video) {
             return false;
         }
-
-        return true;
+        return normalizeVideoId(video.id) !== null;
     }
 
     function isVideoDeleting(video) {
-        if (!video || (!Number.isInteger(video.id) && typeof video.id !== 'string')) {
+        const videoId = normalizeVideoId(video?.id);
+
+        if (videoId === null) {
             return false;
         }
-
-        return deletingVideoId.value === String(video.id);
+        return deletingVideoId.value === videoId;
     }
 
     function isVideoRenaming(video) {
-        if (!video || (!Number.isInteger(video.id) && typeof video.id !== 'string')) {
+        const videoId = normalizeVideoId(video?.id);
+
+        if (videoId === null) {
             return false;
         }
+        return renamingVideoId.value === videoId;
+    }
 
-        return renamingVideoId.value === String(video.id);
+    function findVideoById(videoId) {
+        const normalizedVideoId = normalizeVideoId(videoId);
+
+        if (normalizedVideoId === null) {
+            return null;
+        }
+        return videos.value.find((video) => normalizeVideoId(video?.id) === normalizedVideoId) ?? null;
     }
 
     const isDeleteModalOpen = computed(() => pendingDeletionVideo.value !== null);
@@ -372,11 +400,11 @@ export function useVideoPlayer() {
     const isRenameInProgress = computed(() => renamingVideoId.value !== null);
 
     function isVideoSelected(video) {
-        return selectedVideoId.value === video.id;
+        return selectedVideoId.value !== null && selectedVideoId.value === normalizeVideoId(video?.id);
     }
 
     function isVideoPlaying(video) {
-        return playingVideoId.value === video.id;
+        return playingVideoId.value !== null && playingVideoId.value === normalizeVideoId(video?.id);
     }
 
     function videoButtonClass(video) {
@@ -404,24 +432,48 @@ export function useVideoPlayer() {
         return videoUnavailableMessageByStatus(video.status);
     }
 
+    const videoListItems = computed(() => {
+        return videos.value
+            .map((video) => {
+                const videoId = normalizeVideoId(video?.id);
+
+                if (videoId === null) {
+                    return null;
+                }
+                const isBusy = isPlaybackLoading.value || isVideoDeleting(video) || isVideoRenaming(video);
+
+                return {
+                    id: videoId,
+                    title: typeof video.title === 'string' && video.title.trim() !== '' ? video.title.trim() : 'Untitled video',
+                    createdAtLabel: formatDate(video.created_at),
+                    buttonClass: videoButtonClass(video),
+                    statusBadgeClass: videoStatusBadgeClass(video),
+                    statusBadgeLabel: videoStatusBadgeLabel(video),
+                    unavailableMessage: videoUnavailableMessage(video),
+                    canPlay: canPlayVideo(video),
+                    canRename: canRenameVideo(video),
+                    canDelete: canDeleteVideo(video),
+                    isBusy,
+                };
+            })
+            .filter((video) => video !== null);
+    });
+
     function replaceVideoInList(updatedVideo) {
         if (!updatedVideo || typeof updatedVideo !== 'object') {
             return;
         }
 
-        const updatedVideoId = typeof updatedVideo.id === 'string'
-            ? updatedVideo.id
-            : String(updatedVideo.id ?? '');
+        const updatedVideoId = normalizeVideoId(updatedVideo.id);
 
-        if (updatedVideoId === '') {
+        if (updatedVideoId === null) {
             return;
         }
 
         videos.value = videos.value.map((video) => {
-            if (String(video.id) !== updatedVideoId) {
+            if (normalizeVideoId(video?.id) !== updatedVideoId) {
                 return video;
             }
-
             return {
                 ...video,
                 ...updatedVideo,
@@ -433,11 +485,9 @@ export function useVideoPlayer() {
         if (pendingDeletionVideo.value !== null || pendingRenameVideo.value !== null) {
             return false;
         }
-
         if (deletingVideoId.value !== null || renamingVideoId.value !== null) {
             return false;
         }
-
         return true;
     }
 
@@ -451,7 +501,12 @@ export function useVideoPlayer() {
         }
 
         refreshTimerId.value = window.setInterval(() => {
-            if (!isVideoListLoading.value && hasAccessToken.value && canRefreshVideoListSilently()) {
+            if (
+                !isVideoListLoading.value
+                && !isVideoListRefreshInFlight.value
+                && hasAccessToken.value
+                && canRefreshVideoListSilently()
+            ) {
                 loadVideos({ silent: true });
             }
         }, AUTO_REFRESH_INTERVAL_MS);
@@ -462,46 +517,57 @@ export function useVideoPlayer() {
             isVideoListLoading.value = false;
             return;
         }
-
+        if (loadVideosPromise) {
+            return loadVideosPromise;
+        }
         if (!silent) {
             isVideoListLoading.value = true;
         }
+        isVideoListRefreshInFlight.value = true;
 
-        try {
-            videos.value = await requestVideosList({
-                fetchWithAuthorization,
-                apiBase: API_BASE,
-            });
-
-            if (selectedVideoId.value && !videos.value.some((video) => video.id === selectedVideoId.value)) {
-                selectedVideoId.value = null;
-            }
-
-            if (playingVideoId.value && !videos.value.some((video) => video.id === playingVideoId.value)) {
-                playingVideoId.value = null;
-            }
-
-            if (!isPlaybackLoading.value && !playingVideoId.value && videos.value.length === 0) {
-                destroyPlayer();
-                setPlayerSurfaceMode('idle');
-                playerStatus.value = '';
-            }
-
-            configureAutoRefresh();
-        } catch (error) {
-            clearRefreshTimer();
-            videos.value = [];
-
-            if (shouldShowListErrorState()) {
-                setPlayerSurfaceMode('message', {
-                    title: 'Unable to load videos',
-                    description: error instanceof Error ? error.message : 'Failed to load videos.',
-                    variant: 'error',
+        loadVideosPromise = (async () => {
+            try {
+                const nextVideos = await requestVideosList({
+                    fetchWithAuthorization,
+                    apiBase: API_BASE,
                 });
+                videos.value = nextVideos;
+
+                if (selectedVideoId.value && !videos.value.some((video) => normalizeVideoId(video?.id) === selectedVideoId.value)) {
+                    selectedVideoId.value = null;
+                }
+                if (playingVideoId.value && !videos.value.some((video) => normalizeVideoId(video?.id) === playingVideoId.value)) {
+                    playingVideoId.value = null;
+                }
+                if (!isPlaybackLoading.value && !playingVideoId.value && videos.value.length === 0) {
+                    destroyPlayer();
+                    setPlayerSurfaceMode('idle');
+                    playerStatus.value = '';
+                }
+                configureAutoRefresh();
+            } catch (error) {
+                clearRefreshTimer();
+
+                if (!silent) {
+                    videos.value = [];
+                }
+                if (shouldShowListErrorState()) {
+                    setPlayerSurfaceMode('message', {
+                        title: 'Unable to load videos',
+                        description: error instanceof Error ? error.message : 'Failed to load videos.',
+                        variant: 'error',
+                    });
+                }
+            } finally {
+                isVideoListRefreshInFlight.value = false;
+
+                if (!silent) {
+                    isVideoListLoading.value = false;
+                }
+                loadVideosPromise = null;
             }
-        } finally {
-            isVideoListLoading.value = false;
-        }
+        })();
+        return loadVideosPromise;
     }
 
     async function startPlayback(video) {
@@ -509,11 +575,15 @@ export function useVideoPlayer() {
             return;
         }
 
+        const targetVideoId = normalizeVideoId(video.id);
+
+        if (targetVideoId === null) {
+            return;
+        }
         if (isPlaybackLoading.value) {
             return;
         }
-
-        selectedVideoId.value = video.id;
+        selectedVideoId.value = targetVideoId;
         playingVideoId.value = null;
         isPlaybackLoading.value = true;
         playerStatus.value = 'Loading video...';
@@ -526,9 +596,9 @@ export function useVideoPlayer() {
         destroyPlayer();
 
         try {
-            await fetchAndAttachPlaybackPlaylist(video.id);
+            await fetchAndAttachPlaybackPlaylist(targetVideoId);
 
-            playingVideoId.value = video.id;
+            playingVideoId.value = targetVideoId;
             playerStatus.value = 'Playing video';
             setPlayerSurfaceMode('playing');
         } catch (error) {
@@ -546,7 +616,9 @@ export function useVideoPlayer() {
     }
 
     function requestVideoDeletion(video) {
-        if (!video || (!Number.isInteger(video.id) && typeof video.id !== 'string') || !canDeleteVideo(video)) {
+        const videoId = normalizeVideoId(video?.id);
+
+        if (videoId === null || !canDeleteVideo(video)) {
             return;
         }
 
@@ -561,7 +633,7 @@ export function useVideoPlayer() {
 
         videoRenameError.value = '';
         pendingDeletionVideo.value = {
-            id: String(video.id),
+            id: videoId,
             title: typeof video.title === 'string' ? video.title : null,
         };
     }
@@ -575,10 +647,11 @@ export function useVideoPlayer() {
     }
 
     function requestVideoRename(video) {
-        if (!canRenameVideo(video)) {
+        const videoId = normalizeVideoId(video?.id);
+
+        if (videoId === null || !canRenameVideo(video)) {
             return;
         }
-
         if (
             renamingVideoId.value !== null
             || deletingVideoId.value !== null
@@ -589,7 +662,7 @@ export function useVideoPlayer() {
         }
 
         pendingRenameVideo.value = {
-            id: String(video.id),
+            id: videoId,
             title: typeof video.title === 'string' ? video.title : '',
         };
         videoRenameError.value = '';
@@ -608,11 +681,9 @@ export function useVideoPlayer() {
         if (!pendingRenameVideo.value) {
             return;
         }
-
         if (renamingVideoId.value !== null || deletingVideoId.value !== null || isPlaybackLoading.value) {
             return;
         }
-
         const targetVideoId = pendingRenameVideo.value.id;
         renamingVideoId.value = targetVideoId;
         videoRenameError.value = '';
@@ -638,7 +709,6 @@ export function useVideoPlayer() {
         if (!pendingDeletionVideo.value) {
             return;
         }
-
         if (deletingVideoId.value !== null || renamingVideoId.value !== null || isPlaybackLoading.value) {
             return;
         }
@@ -699,8 +769,34 @@ export function useVideoPlayer() {
         if (!video || !canPlayVideo(video)) {
             return;
         }
-
         startPlayback(video);
+    }
+
+    function handleVideoSelection(videoId) {
+        const video = findVideoById(videoId);
+
+        if (!video) {
+            return;
+        }
+        handleVideoClick(video);
+    }
+
+    function requestVideoRenameById(videoId) {
+        const video = findVideoById(videoId);
+
+        if (!video) {
+            return;
+        }
+        requestVideoRename(video);
+    }
+
+    function requestVideoDeletionById(videoId) {
+        const video = findVideoById(videoId);
+
+        if (!video) {
+            return;
+        }
+        requestVideoDeletion(video);
     }
 
     function handleBeforeUnload() {
@@ -727,11 +823,10 @@ export function useVideoPlayer() {
     });
 
     return {
+        videoListItems,
         videos,
         isVideoListLoading,
         isPlaybackLoading,
-        isVideoDeleting,
-        isVideoRenaming,
         isDeleteModalOpen,
         isDeleteInProgress,
         isRenameModalOpen,
@@ -745,22 +840,13 @@ export function useVideoPlayer() {
         noTokenMessage,
         emptyVideosMessage,
         hasAccessToken,
-        canPlayVideo,
-        canDeleteVideo,
-        canRenameVideo,
         pendingDeletionVideoTitle,
         pendingRenameVideoTitle,
-        videoButtonClass,
-        videoStatusBadgeClass,
-        videoStatusBadgeLabel,
-        formatDate,
-        isVideoPlaying,
-        videoUnavailableMessage,
-        handleVideoClick,
-        requestVideoDeletion,
+        handleVideoSelection,
+        requestVideoDeletionById,
+        requestVideoRenameById,
         cancelVideoDeletion,
         confirmVideoDeletion,
-        requestVideoRename,
         cancelVideoRename,
         confirmVideoRename,
         setVideoElement,

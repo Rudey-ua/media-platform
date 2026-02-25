@@ -1,136 +1,68 @@
-import { isAccessTokenExpired } from './jwtUtils';
+import { isAccessTokenExpired } from './jwtUtils.js';
 import {
     accessTokenFromObject,
     normalizeAccessToken,
     normalizeRefreshToken,
     refreshTokenFromObject,
-} from './tokenParsers';
-import { safeWindow } from './windowUtils';
+} from './tokenParsers.js';
+import { safeWindow } from './windowUtils.js';
 
-const ACCESS_TOKEN_KEYS = [
-    'access_token',
-    'auth.access_token',
-    'api_access_token',
-    'auth_token',
-    'jwt',
-    'jwt_token',
-    'token',
-    'hls_player_jwt_token',
-];
+function resolveTokenFromWindow(browserWindow) {
+    const candidateTokens = [
+        {
+            token: accessTokenFromObject(browserWindow.auth || {}),
+            source: 'window.auth',
+        },
+        {
+            token: accessTokenFromObject(browserWindow.App || {}),
+            source: 'window.App',
+        },
+        {
+            token: normalizeAccessToken(browserWindow.ACCESS_TOKEN),
+            source: 'window.ACCESS_TOKEN',
+        },
+        {
+            token: normalizeAccessToken(browserWindow.accessToken),
+            source: 'window.accessToken',
+        },
+        {
+            token: normalizeAccessToken(browserWindow.authToken),
+            source: 'window.authToken',
+        },
+    ];
 
-const REFRESH_TOKEN_KEYS = [
-    'refresh_token',
-    'auth.refresh_token',
-    'api_refresh_token',
-    'refreshToken',
-    'hls_player_refresh_token',
-];
-
-function accessTokenFromStorage(storage, storageLabel) {
-    if (!storage) {
-        return null;
-    }
-
-    for (const key of ACCESS_TOKEN_KEYS) {
-        const value = storage.getItem(key);
-        const directToken = normalizeAccessToken(value);
-
-        if (directToken && !isAccessTokenExpired(directToken)) {
-            return { token: directToken, source: `${storageLabel}:${key}` };
-        }
-
-        if (typeof value === 'string' && value.trim().startsWith('{')) {
-            try {
-                const parsedValue = JSON.parse(value);
-                const token = accessTokenFromObject(parsedValue);
-
-                if (token) {
-                    return { token, source: `${storageLabel}:${key}` };
-                }
-            } catch (_error) {
-                continue;
-            }
-        }
-    }
-
-    for (let index = 0; index < storage.length; index += 1) {
-        const key = storage.key(index);
-
-        if (!key) {
-            continue;
-        }
-
-        const value = storage.getItem(key);
-        const directToken = normalizeAccessToken(value);
-
-        if (directToken && directToken.split('.').length === 3 && !isAccessTokenExpired(directToken)) {
-            return { token: directToken, source: `${storageLabel}:${key}` };
-        }
-
-        if (typeof value === 'string' && value.trim().startsWith('{')) {
-            try {
-                const parsedValue = JSON.parse(value);
-                const token = accessTokenFromObject(parsedValue);
-
-                if (token) {
-                    return { token, source: `${storageLabel}:${key}` };
-                }
-            } catch (_error) {
-                continue;
-            }
+    for (const candidate of candidateTokens) {
+        if (candidate.token && !isAccessTokenExpired(candidate.token)) {
+            return candidate;
         }
     }
 
     return null;
 }
 
-function refreshTokenFromStorage(storage, storageLabel) {
-    if (!storage) {
-        return null;
-    }
+function resolveRefreshTokenFromWindow(browserWindow) {
+    const candidateTokens = [
+        {
+            token: refreshTokenFromObject(browserWindow.auth || {}),
+            source: 'window.auth',
+        },
+        {
+            token: refreshTokenFromObject(browserWindow.App || {}),
+            source: 'window.App',
+        },
+        {
+            token: normalizeRefreshToken(browserWindow.REFRESH_TOKEN),
+            source: 'window.REFRESH_TOKEN',
+        },
+        {
+            token: normalizeRefreshToken(browserWindow.refreshToken),
+            source: 'window.refreshToken',
+        },
+    ];
 
-    for (const key of REFRESH_TOKEN_KEYS) {
-        const value = storage.getItem(key);
-        const directToken = normalizeRefreshToken(value);
-
-        if (directToken) {
-            return { token: directToken, source: `${storageLabel}:${key}` };
-        }
-
-        if (typeof value === 'string' && value.trim().startsWith('{')) {
-            try {
-                const parsedValue = JSON.parse(value);
-                const token = refreshTokenFromObject(parsedValue);
-
-                if (token) {
-                    return { token, source: `${storageLabel}:${key}` };
-                }
-            } catch (_error) {
-                continue;
-            }
-        }
-    }
-
-    for (let index = 0; index < storage.length; index += 1) {
-        const key = storage.key(index);
-
-        if (!key) {
-            continue;
-        }
-
-        const value = storage.getItem(key);
-
-        if (typeof value === 'string' && value.trim().startsWith('{')) {
-            try {
-                const parsedValue = JSON.parse(value);
-                const token = refreshTokenFromObject(parsedValue);
-
-                if (token) {
-                    return { token, source: `${storageLabel}:${key}` };
-                }
-            } catch (_error) {
-                continue;
-            }
+    for (const candidate of candidateTokens) {
+        if (candidate.token) {
+            return candidate;
         }
     }
 
@@ -144,28 +76,16 @@ export function resolveAccessToken(authTokensPayload) {
         return null;
     }
 
-    const candidateTokens = [
-        normalizeAccessToken(browserWindow.ACCESS_TOKEN),
-        normalizeAccessToken(browserWindow.accessToken),
-        normalizeAccessToken(browserWindow.authToken),
-        accessTokenFromObject(authTokensPayload),
-        accessTokenFromObject(browserWindow.auth || {}),
-        accessTokenFromObject(browserWindow.App || {}),
-    ];
+    const tokenFromSharedPayload = accessTokenFromObject(authTokensPayload);
 
-    for (const token of candidateTokens) {
-        if (token && !isAccessTokenExpired(token)) {
-            return { token, source: 'window' };
-        }
+    if (tokenFromSharedPayload && !isAccessTokenExpired(tokenFromSharedPayload)) {
+        return {
+            token: tokenFromSharedPayload,
+            source: 'inertia.shared.auth.api_tokens',
+        };
     }
 
-    const localStorageToken = accessTokenFromStorage(browserWindow.localStorage, 'localStorage');
-
-    if (localStorageToken) {
-        return localStorageToken;
-    }
-
-    return accessTokenFromStorage(browserWindow.sessionStorage, 'sessionStorage');
+    return resolveTokenFromWindow(browserWindow);
 }
 
 export function resolveRefreshToken(authTokensPayload) {
@@ -175,25 +95,14 @@ export function resolveRefreshToken(authTokensPayload) {
         return null;
     }
 
-    const candidateTokens = [
-        normalizeRefreshToken(browserWindow.REFRESH_TOKEN),
-        normalizeRefreshToken(browserWindow.refreshToken),
-        refreshTokenFromObject(authTokensPayload),
-        refreshTokenFromObject(browserWindow.auth || {}),
-        refreshTokenFromObject(browserWindow.App || {}),
-    ];
+    const refreshTokenFromSharedPayload = refreshTokenFromObject(authTokensPayload);
 
-    for (const token of candidateTokens) {
-        if (token) {
-            return { token, source: 'window' };
-        }
+    if (refreshTokenFromSharedPayload) {
+        return {
+            token: refreshTokenFromSharedPayload,
+            source: 'inertia.shared.auth.api_tokens',
+        };
     }
 
-    const localStorageToken = refreshTokenFromStorage(browserWindow.localStorage, 'localStorage');
-
-    if (localStorageToken) {
-        return localStorageToken;
-    }
-
-    return refreshTokenFromStorage(browserWindow.sessionStorage, 'sessionStorage');
+    return resolveRefreshTokenFromWindow(browserWindow);
 }

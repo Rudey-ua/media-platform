@@ -3,7 +3,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import ApiLoadingState from '../ApiLoadingState.vue';
 
 const props = defineProps({
-    videos: {
+    videoItems: {
         type: Array,
         required: true,
     },
@@ -23,57 +23,9 @@ const props = defineProps({
         type: String,
         required: true,
     },
-    isPlaybackLoading: {
-        type: Boolean,
-        required: true,
-    },
     canManageVideos: {
         type: Boolean,
         default: false,
-    },
-    canPlayVideo: {
-        type: Function,
-        required: true,
-    },
-    canDeleteVideo: {
-        type: Function,
-        required: true,
-    },
-    canRenameVideo: {
-        type: Function,
-        required: true,
-    },
-    isVideoDeleting: {
-        type: Function,
-        required: true,
-    },
-    isVideoRenaming: {
-        type: Function,
-        required: true,
-    },
-    videoButtonClass: {
-        type: Function,
-        required: true,
-    },
-    videoStatusBadgeClass: {
-        type: Function,
-        required: true,
-    },
-    videoStatusBadgeLabel: {
-        type: Function,
-        required: true,
-    },
-    formatDate: {
-        type: Function,
-        required: true,
-    },
-    isVideoPlaying: {
-        type: Function,
-        required: true,
-    },
-    videoUnavailableMessage: {
-        type: Function,
-        required: true,
     },
 });
 
@@ -87,7 +39,7 @@ const scrollContainerElement = ref(null);
 const actionMenuPlacement = ref('down');
 
 watch(
-    () => props.videos.map((video) => String(video.id)),
+    () => props.videoItems.map((video) => String(video.id)),
     (videoIds) => {
         if (actionMenuVideoId.value !== null && !videoIds.includes(actionMenuVideoId.value)) {
             actionMenuVideoId.value = null;
@@ -95,10 +47,6 @@ watch(
     },
     { immediate: true },
 );
-
-function resolveVideoId(video) {
-    return String(video?.id ?? '');
-}
 
 function closeActionMenu() {
     actionMenuVideoId.value = null;
@@ -128,26 +76,20 @@ function resolveActionMenuPlacement(triggerElement) {
     return 'down';
 }
 
-function hasActions(video) {
-    return props.canManageVideos && (props.canRenameVideo(video) || props.canDeleteVideo(video));
+function hasActions(videoItem) {
+    return props.canManageVideos && (videoItem.canRename || videoItem.canDelete);
 }
 
-function canRenameAction(video) {
-    return props.canRenameVideo(video)
-        && !props.isPlaybackLoading
-        && !props.isVideoDeleting(video)
-        && !props.isVideoRenaming(video);
+function canRenameAction(videoItem) {
+    return videoItem.canRename && !videoItem.isBusy;
 }
 
-function canDeleteAction(video) {
-    return props.canDeleteVideo(video)
-        && !props.isPlaybackLoading
-        && !props.isVideoDeleting(video)
-        && !props.isVideoRenaming(video);
+function canDeleteAction(videoItem) {
+    return videoItem.canDelete && !videoItem.isBusy;
 }
 
-function toggleActionMenu(video, event) {
-    const videoId = resolveVideoId(video);
+function toggleActionMenu(videoItem, event) {
+    const videoId = String(videoItem?.id ?? '');
 
     if (videoId === '') {
         return;
@@ -162,27 +104,31 @@ function toggleActionMenu(video, event) {
     actionMenuVideoId.value = videoId;
 }
 
-function handleVideoCardClick(video) {
-    closeActionMenu();
-    emit('select-video', video);
-}
-
-function handleRenameAction(video) {
-    if (!canRenameAction(video)) {
+function handleVideoCardClick(videoItem) {
+    if (!videoItem.canPlay || videoItem.isBusy) {
         return;
     }
 
     closeActionMenu();
-    emit('rename-video', video);
+    emit('select-video', videoItem.id);
 }
 
-function handleDeleteAction(video) {
-    if (!canDeleteAction(video)) {
+function handleRenameAction(videoItem) {
+    if (!canRenameAction(videoItem)) {
         return;
     }
 
     closeActionMenu();
-    emit('delete-video', video);
+    emit('rename-video', videoItem.id);
+}
+
+function handleDeleteAction(videoItem) {
+    if (!canDeleteAction(videoItem)) {
+        return;
+    }
+
+    closeActionMenu();
+    emit('delete-video', videoItem.id);
 }
 
 function handleDocumentPointerDown(event) {
@@ -228,7 +174,7 @@ onBeforeUnmount(() => {
         <div ref="scrollContainerElement" class="max-h-[70vh] overflow-y-auto p-2">
             <Transition name="fade" mode="out-in">
                 <ApiLoadingState
-                    v-if="props.isVideoListLoading && props.videos.length === 0"
+                    v-if="props.isVideoListLoading && props.videoItems.length === 0"
                     key="loading"
                     message="Loading videos..."
                 />
@@ -237,38 +183,35 @@ onBeforeUnmount(() => {
                     {{ props.noTokenMessage }}
                 </div>
 
-                <div v-else-if="props.videos.length === 0" key="empty" class="px-5 py-8 text-center text-sm text-gray-500">
+                <div v-else-if="props.videoItems.length === 0" key="empty" class="px-5 py-8 text-center text-sm text-gray-500">
                     {{ props.emptyVideosMessage }}
                 </div>
 
                 <ul v-else key="list" class="divide-y divide-gray-100">
-                    <li v-for="video in props.videos" :key="video.id" class="mb-1 last:mb-0">
+                    <li v-for="video in props.videoItems" :key="video.id" class="mb-1 last:mb-0">
                         <div class="relative overflow-visible rounded-xl">
                             <button
                                 type="button"
                                 :aria-label="`Video ${video.title || video.id}`"
-                                :disabled="!props.canPlayVideo(video) || props.isPlaybackLoading || props.isVideoDeleting(video) || props.isVideoRenaming(video)"
+                                :disabled="!video.canPlay || video.isBusy"
                                 :class="[
-                                    props.videoButtonClass(video),
+                                    video.buttonClass,
                                     hasActions(video) ? 'pr-12' : '',
                                 ]"
                                 @click="handleVideoCardClick(video)"
                             >
                                 <div class="flex items-center justify-between gap-3">
                                     <div class="flex flex-col items-start gap-1">
-                                        <span class="font-medium">{{ video.title || 'Untitled video' }}</span>
-                                        <span
-                                            class="text-xs text-gray-500"
-                                            v-text="props.formatDate(video.created_at)"
-                                        ></span>
+                                        <span class="font-medium">{{ video.title }}</span>
+                                        <span class="text-xs text-gray-500" v-text="video.createdAtLabel"></span>
                                     </div>
-                                    <span :class="props.videoStatusBadgeClass(video)" v-text="props.videoStatusBadgeLabel(video)"></span>
+                                    <span :class="video.statusBadgeClass" v-text="video.statusBadgeLabel"></span>
                                 </div>
 
                                 <p
-                                    v-if="!props.canPlayVideo(video) && props.videoUnavailableMessage(video) !== ''"
+                                    v-if="!video.canPlay && video.unavailableMessage !== ''"
                                     class="mt-2 text-xs text-gray-500"
-                                    v-text="props.videoUnavailableMessage(video)"
+                                    v-text="video.unavailableMessage"
                                 ></p>
                             </button>
 
@@ -276,10 +219,10 @@ onBeforeUnmount(() => {
                                 <button
                                     type="button"
                                     class="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-200/70 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/50 disabled:cursor-not-allowed disabled:text-gray-300"
-                                    :aria-expanded="actionMenuVideoId === resolveVideoId(video)"
+                                    :aria-expanded="actionMenuVideoId === String(video.id)"
                                     aria-haspopup="menu"
                                     aria-label="Video actions"
-                                    :disabled="props.isPlaybackLoading || props.isVideoDeleting(video) || props.isVideoRenaming(video)"
+                                    :disabled="video.isBusy"
                                     @click.stop="toggleActionMenu(video, $event)"
                                 >
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -291,7 +234,7 @@ onBeforeUnmount(() => {
 
                                 <Transition name="menu-fade">
                                     <div
-                                        v-if="actionMenuVideoId === resolveVideoId(video)"
+                                        v-if="actionMenuVideoId === String(video.id)"
                                         :class="[
                                             'absolute right-0 w-40 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg ring-1 ring-black/5',
                                             actionMenuPlacement === 'up'

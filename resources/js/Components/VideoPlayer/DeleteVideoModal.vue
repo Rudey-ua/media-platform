@@ -1,5 +1,7 @@
 <script setup>
-defineProps({
+import { onBeforeUnmount, ref, watch } from 'vue';
+
+const props = defineProps({
     isOpen: {
         type: Boolean,
         required: true,
@@ -15,6 +17,9 @@ defineProps({
 });
 
 const emit = defineEmits(['cancel', 'confirm']);
+const dialogElement = ref(null);
+const lastFocusedElement = ref(null);
+const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 function cancel() {
     emit('cancel');
@@ -23,22 +28,122 @@ function cancel() {
 function confirm() {
     emit('confirm');
 }
+
+function trapTabFocus(event) {
+    if (!(dialogElement.value instanceof HTMLElement)) {
+        return;
+    }
+
+    const focusableElements = Array.from(dialogElement.value.querySelectorAll(FOCUSABLE_SELECTOR))
+        .filter((element) => element instanceof HTMLElement);
+
+    if (focusableElements.length === 0) {
+        event.preventDefault();
+        dialogElement.value.focus();
+        return;
+    }
+
+    const firstFocusableElement = focusableElements[0];
+    const lastFocusableElement = focusableElements[focusableElements.length - 1];
+    const activeElement = document.activeElement;
+
+    if (event.shiftKey && activeElement === firstFocusableElement) {
+        event.preventDefault();
+        lastFocusableElement.focus();
+        return;
+    }
+
+    if (!event.shiftKey && activeElement === lastFocusableElement) {
+        event.preventDefault();
+        firstFocusableElement.focus();
+    }
+}
+
+function handleEscape() {
+    if (!props.isDeleting) {
+        cancel();
+    }
+}
+
+function handleDialogKeyDown(event) {
+    if (!props.isOpen) {
+        return;
+    }
+
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        handleEscape();
+        return;
+    }
+
+    if (event.key === 'Tab') {
+        trapTabFocus(event);
+    }
+}
+
+function handleOverlayClick(event) {
+    if (props.isDeleting) {
+        return;
+    }
+
+    if (event.target === event.currentTarget) {
+        cancel();
+    }
+}
+
+watch(
+    () => props.isOpen,
+    (isOpen, wasOpen) => {
+        if (isOpen && !wasOpen && document.activeElement instanceof HTMLElement) {
+            lastFocusedElement.value = document.activeElement;
+        }
+        if (isOpen) {
+            window.addEventListener('keydown', handleDialogKeyDown);
+
+            requestAnimationFrame(() => {
+                if (dialogElement.value instanceof HTMLElement) {
+                    dialogElement.value.focus();
+                }
+            });
+            return;
+        }
+
+        if (wasOpen) {
+            window.removeEventListener('keydown', handleDialogKeyDown);
+
+            if (lastFocusedElement.value instanceof HTMLElement) {
+                lastFocusedElement.value.focus();
+            }
+            lastFocusedElement.value = null;
+        }
+    },
+    { immediate: true },
+);
+
+onBeforeUnmount(() => {
+    window.removeEventListener('keydown', handleDialogKeyDown);
+});
 </script>
 
 <template>
     <Transition name="fade">
         <div
-            v-if="isOpen"
+            v-if="props.isOpen"
             class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 backdrop-blur-[1px]"
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-video-title"
+            @click="handleOverlayClick"
         >
-            <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6">
+            <div
+                ref="dialogElement"
+                class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6 focus:outline-none"
+                tabindex="-1"
+            >
                 <h2 id="delete-video-title" class="text-lg font-semibold text-slate-900">Delete video?</h2>
                 <p class="mt-2 text-sm text-slate-600">
                     You are about to delete
-                    <span class="font-medium text-slate-900">"{{ videoTitle }}"</span>.
+                    <span class="font-medium text-slate-900">"{{ props.videoTitle }}"</span>.
                     This action cannot be undone.
                 </p>
 
@@ -46,7 +151,7 @@ function confirm() {
                     <button
                         type="button"
                         class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 active:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400"
-                        :disabled="isDeleting"
+                        :disabled="props.isDeleting"
                         @click="cancel"
                     >
                         Cancel
@@ -54,7 +159,7 @@ function confirm() {
                     <button
                         type="button"
                         class="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 active:bg-red-800 disabled:cursor-not-allowed disabled:bg-red-300"
-                        :disabled="isDeleting"
+                        :disabled="props.isDeleting"
                         @click="confirm"
                     >
                         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -64,7 +169,7 @@ function confirm() {
                             <path d="M10 10.5V16.5"></path>
                             <path d="M14 10.5V16.5"></path>
                         </svg>
-                        {{ isDeleting ? 'Deleting...' : 'Delete video' }}
+                        {{ props.isDeleting ? 'Deleting...' : 'Delete video' }}
                     </button>
                 </div>
             </div>

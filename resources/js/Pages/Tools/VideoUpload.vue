@@ -31,6 +31,7 @@ const {
 } = useVideoUpload();
 
 const isDropzoneDragging = ref(false);
+const fileInputElement = ref(null);
 
 const TITLE_ADJECTIVES = [
     'Cosmic', 'Silent', 'Golden', 'Electric', 'Vivid',
@@ -170,10 +171,8 @@ function triggerFilePicker() {
         return;
     }
 
-    const input = document.getElementById('video-file');
-
-    if (input instanceof HTMLInputElement) {
-        input.click();
+    if (fileInputElement.value instanceof HTMLInputElement) {
+        fileInputElement.value.click();
     }
 }
 
@@ -294,6 +293,7 @@ function handleDrop(event) {
                 >
                     <input
                         id="video-file"
+                        ref="fileInputElement"
                         type="file"
                         accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/mp2t,.ts"
                         class="hidden"

@@ -1,5 +1,8 @@
 import Hls from 'hls.js';
 
+const MANIFEST_LOAD_TIMEOUT_MS = 20000;
+const NATIVE_METADATA_TIMEOUT_MS = 15000;
+
 function extractHttpStatusCode(errorData) {
     const responseCode = errorData?.response?.code ?? errorData?.response?.status;
     const parsedCode = Number(responseCode);
@@ -84,16 +87,37 @@ export function createHlsPlaybackEngine({ getVideoElement, onFatalError, onPlayb
             const source = playlistBlobUrl;
 
             await new Promise((resolve, reject) => {
-                let isResolved = false;
+                let isSettled = false;
+                let manifestParsed = false;
+                const timeoutId = window.setTimeout(() => {
+                    if (isSettled) {
+                        return;
+                    }
+                    isSettled = true;
+                    cleanup();
+                    reject(new Error('Timed out while loading HLS manifest.'));
+                }, MANIFEST_LOAD_TIMEOUT_MS);
 
-                hls.on(Hls.Events.ERROR, (_event, data) => {
+                const cleanup = () => {
+                    window.clearTimeout(timeoutId);
+                    hls.off(Hls.Events.ERROR, onError);
+                    hls.off(Hls.Events.MEDIA_ATTACHED, onMediaAttached);
+                    hls.off(Hls.Events.MANIFEST_PARSED, onManifestParsed);
+                };
+
+                const onError = (_event, data) => {
                     if (!data || !data.fatal) {
                         return;
                     }
                     const statusCode = extractHttpStatusCode(data);
 
                     if (statusCode === 401 || statusCode === 403) {
-                        if (!isResolved) {
+                        if (!manifestParsed) {
+                            if (isSettled) {
+                                return;
+                            }
+                            isSettled = true;
+                            cleanup();
                             reject(new Error('Playback session expired.'));
                             return;
                         }
@@ -103,6 +127,11 @@ export function createHlsPlaybackEngine({ getVideoElement, onFatalError, onPlayb
                             autoplay: !currentVideoElement.paused,
                         };
 
+                        if (isSettled) {
+                            return;
+                        }
+                        isSettled = true;
+                        cleanup();
                         destroy();
                         onPlaybackSessionExpired?.(playbackState);
                         return;
@@ -110,37 +139,74 @@ export function createHlsPlaybackEngine({ getVideoElement, onFatalError, onPlayb
 
                     const errorMessage = `Fatal HLS error: ${data.details || data.type || 'unknown'}`;
 
-                    if (isResolved) {
+                    if (manifestParsed) {
+                        if (isSettled) {
+                            return;
+                        }
+                        isSettled = true;
+                        cleanup();
                         destroy();
                         onFatalError(errorMessage);
                         return;
                     }
-
+                    if (isSettled) {
+                        return;
+                    }
+                    isSettled = true;
+                    cleanup();
                     reject(new Error(errorMessage));
-                });
-
-                hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+                };
+                const onMediaAttached = () => {
                     hls.loadSource(source);
-                });
+                };
 
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    isResolved = true;
+                const onManifestParsed = () => {
+                    if (isSettled) {
+                        return;
+                    }
+                    manifestParsed = true;
+                    isSettled = true;
+                    cleanup();
                     resolve();
-                });
+                };
 
+                hls.on(Hls.Events.ERROR, onError);
+                hls.on(Hls.Events.MEDIA_ATTACHED, onMediaAttached);
+                hls.on(Hls.Events.MANIFEST_PARSED, onManifestParsed);
                 hls.attachMedia(currentVideoElement);
             });
         } else if (currentVideoElement.canPlayType('application/vnd.apple.mpegurl')) {
             await new Promise((resolve, reject) => {
-                const onLoadedMetadata = () => {
+                let isSettled = false;
+                const timeoutId = window.setTimeout(() => {
+                    if (isSettled) {
+                        return;
+                    }
+                    isSettled = true;
+                    cleanup();
+                    reject(new Error('Timed out while loading native HLS metadata.'));
+                }, NATIVE_METADATA_TIMEOUT_MS);
+
+                const cleanup = () => {
+                    window.clearTimeout(timeoutId);
                     currentVideoElement.removeEventListener('loadedmetadata', onLoadedMetadata);
                     currentVideoElement.removeEventListener('error', onError);
+                };
+                const onLoadedMetadata = () => {
+                    if (isSettled) {
+                        return;
+                    }
+                    isSettled = true;
+                    cleanup();
                     resolve();
                 };
 
                 const onError = () => {
-                    currentVideoElement.removeEventListener('loadedmetadata', onLoadedMetadata);
-                    currentVideoElement.removeEventListener('error', onError);
+                    if (isSettled) {
+                        return;
+                    }
+                    isSettled = true;
+                    cleanup();
                     reject(new Error('Native HLS failed to load.'));
                 };
 

@@ -1,11 +1,11 @@
-export { isAccessTokenExpired } from './jwtUtils';
+export { isAccessTokenExpired } from './jwtUtils.js';
 export {
     accessTokenFromObject,
     normalizeAccessToken,
     normalizeRefreshToken,
     refreshTokenFromObject,
-} from './tokenParsers';
+} from './tokenParsers.js';
 export {
     resolveAccessToken,
     resolveRefreshToken,
-} from './tokenStorageResolver';
+} from './tokenStorageResolver.js';

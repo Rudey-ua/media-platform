@@ -23,26 +23,15 @@ const props = defineProps({
 });
 
 const {
-    videos,
+    videoListItems,
     isVideoListLoading,
     hasAccessToken,
     noTokenMessage,
     emptyVideosMessage,
-    isPlaybackLoading,
     surfaceMode,
     surfaceTitle,
     surfaceDescription,
     surfaceBorderClass,
-    canPlayVideo,
-    canDeleteVideo,
-    canRenameVideo,
-    videoButtonClass,
-    videoStatusBadgeClass,
-    videoStatusBadgeLabel,
-    formatDate,
-    isVideoPlaying,
-    isVideoDeleting,
-    isVideoRenaming,
     isDeleteModalOpen,
     isDeleteInProgress,
     pendingDeletionVideoTitle,
@@ -50,10 +39,9 @@ const {
     isRenameInProgress,
     pendingRenameVideoTitle,
     videoRenameError,
-    videoUnavailableMessage,
-    handleVideoClick,
-    requestVideoDeletion,
-    requestVideoRename,
+    handleVideoSelection,
+    requestVideoDeletionById,
+    requestVideoRenameById,
     cancelVideoDeletion,
     confirmVideoDeletion,
     cancelVideoRename,
@@ -93,27 +81,15 @@ const {
 
                 <div class="w-full lg:w-[400px]">
                     <VideoListPanel
-                        :videos="videos"
+                        :video-items="videoListItems"
                         :is-video-list-loading="isVideoListLoading"
                         :has-access-token="hasAccessToken"
                         :no-token-message="noTokenMessage"
                         :empty-videos-message="emptyVideosMessage"
-                        :is-playback-loading="isPlaybackLoading"
                         :can-manage-videos="props.canUploadVideo"
-                        :can-play-video="canPlayVideo"
-                        :can-delete-video="canDeleteVideo"
-                        :can-rename-video="canRenameVideo"
-                        :is-video-deleting="isVideoDeleting"
-                        :is-video-renaming="isVideoRenaming"
-                        :video-button-class="videoButtonClass"
-                        :video-status-badge-class="videoStatusBadgeClass"
-                        :video-status-badge-label="videoStatusBadgeLabel"
-                        :format-date="formatDate"
-                        :is-video-playing="isVideoPlaying"
-                        :video-unavailable-message="videoUnavailableMessage"
-                        @select-video="handleVideoClick"
-                        @rename-video="requestVideoRename"
-                        @delete-video="requestVideoDeletion"
+                        @select-video="handleVideoSelection"
+                        @rename-video="requestVideoRenameById"
+                        @delete-video="requestVideoDeletionById"
                     />
                 </div>
             </div>

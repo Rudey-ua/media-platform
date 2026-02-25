@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 const props = defineProps({
     isOpen: {
@@ -24,6 +24,9 @@ const emit = defineEmits(['cancel', 'confirm']);
 
 const titleDraft = ref('');
 const inputElement = ref(null);
+const dialogElement = ref(null);
+const lastFocusedElement = ref(null);
+const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 const canConfirm = computed(() => {
     if (props.isRenaming) {
@@ -33,19 +36,85 @@ const canConfirm = computed(() => {
     return titleDraft.value.trim() !== props.initialTitle.trim();
 });
 
+function trapTabFocus(event) {
+    if (!(dialogElement.value instanceof HTMLElement)) {
+        return;
+    }
+
+    const focusableElements = Array.from(dialogElement.value.querySelectorAll(FOCUSABLE_SELECTOR))
+        .filter((element) => element instanceof HTMLElement);
+
+    if (focusableElements.length === 0) {
+        event.preventDefault();
+        dialogElement.value.focus();
+        return;
+    }
+
+    const firstFocusableElement = focusableElements[0];
+    const lastFocusableElement = focusableElements[focusableElements.length - 1];
+    const activeElement = document.activeElement;
+
+    if (event.shiftKey && activeElement === firstFocusableElement) {
+        event.preventDefault();
+        lastFocusableElement.focus();
+        return;
+    }
+
+    if (!event.shiftKey && activeElement === lastFocusableElement) {
+        event.preventDefault();
+        firstFocusableElement.focus();
+    }
+}
+
+function handleDialogKeyDown(event) {
+    if (!props.isOpen) {
+        return;
+    }
+
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        handleEscape();
+        return;
+    }
+
+    if (event.key === 'Tab') {
+        trapTabFocus(event);
+    }
+}
+
 watch(
     () => [props.isOpen, props.initialTitle],
-    async ([isOpen]) => {
+    async ([isOpen], [wasOpen] = []) => {
+        if (isOpen && !wasOpen && document.activeElement instanceof HTMLElement) {
+            lastFocusedElement.value = document.activeElement;
+        }
+
+        if (!isOpen && wasOpen) {
+            window.removeEventListener('keydown', handleDialogKeyDown);
+
+            if (lastFocusedElement.value instanceof HTMLElement) {
+                lastFocusedElement.value.focus();
+            }
+
+            lastFocusedElement.value = null;
+            return;
+        }
+
         if (!isOpen) {
             return;
         }
 
+        window.addEventListener('keydown', handleDialogKeyDown);
         titleDraft.value = props.initialTitle;
         await nextTick();
 
         if (inputElement.value instanceof HTMLInputElement) {
             inputElement.value.focus();
             inputElement.value.select();
+            return;
+        }
+        if (dialogElement.value instanceof HTMLElement) {
+            dialogElement.value.focus();
         }
     },
     { immediate: true },
@@ -78,6 +147,10 @@ function handleEscape() {
         cancel();
     }
 }
+
+onBeforeUnmount(() => {
+    window.removeEventListener('keydown', handleDialogKeyDown);
+});
 </script>
 
 <template>
@@ -89,9 +162,12 @@ function handleEscape() {
             aria-modal="true"
             aria-labelledby="rename-video-title"
             @click="handleOverlayClick"
-            @keydown.esc.prevent="handleEscape"
         >
-            <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6">
+            <div
+                ref="dialogElement"
+                class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6 focus:outline-none"
+                tabindex="-1"
+            >
                 <h2 id="rename-video-title" class="text-lg font-semibold text-slate-900">Rename video</h2>
                 <p class="mt-2 text-sm text-slate-600">Update the title shown in your video list.</p>
 

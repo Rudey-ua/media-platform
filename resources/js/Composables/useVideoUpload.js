@@ -1,4 +1,5 @@
 import { computed, onMounted, ref } from 'vue';
+import { API_BASE } from './api/apiBase';
 import { useApiAuth } from './auth/useApiAuth';
 import {
     formatBytes,
@@ -12,7 +13,6 @@ import {
     uploadFileToSignedUrl,
 } from './video/uploadApi';
 
-const API_BASE = window.location.origin;
 const SPEED_SMOOTHING_FACTOR = 0.25;
 
 export function useVideoUpload() {

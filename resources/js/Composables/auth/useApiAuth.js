@@ -1,48 +1,18 @@
 import { usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { API_BASE } from '../api/apiBase';
 import {
     accessTokenFromObject,
     isAccessTokenExpired,
     resolveAccessToken,
 } from './tokenUtils';
 
-const API_BASE = window.location.origin;
-const ACCESS_TOKEN_STORAGE_KEY = 'hls_player_jwt_token';
-const BROWSER_TOKEN_STORAGE_KEYS = [
-    ACCESS_TOKEN_STORAGE_KEY,
-    'access_token',
-    'auth.access_token',
-    'api_access_token',
-    'auth_token',
-    'jwt',
-    'jwt_token',
-    'token',
-    'refresh_token',
-    'auth.refresh_token',
-    'api_refresh_token',
-    'refreshToken',
-    'hls_player_refresh_token',
-];
-
-function removeTokenKeysFromStorage(storage) {
-    if (!storage) {
-        return;
-    }
-
-    for (const key of BROWSER_TOKEN_STORAGE_KEYS) {
-        try {
-            storage.removeItem(key);
-        } catch (_error) {
-            continue;
-        }
-    }
-}
-
 export function useApiAuth() {
     const page = usePage();
     const accessToken = ref(null);
     const tokenSource = ref(null);
     const refreshInFlight = ref(null);
+    const bootstrapInFlight = ref(null);
     const authStatus = ref('Token lookup pending...');
 
     const hasAccessToken = computed(() => {
@@ -52,21 +22,14 @@ export function useApiAuth() {
     function updateAccessToken(token, source) {
         accessToken.value = token;
         tokenSource.value = source;
-
-        try {
-            window.localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
-        } catch (_error) {
-            return;
-        }
     }
 
     function clearAuthTokens() {
         accessToken.value = null;
         tokenSource.value = null;
+        refreshInFlight.value = null;
+        bootstrapInFlight.value = null;
         authStatus.value = 'Logged out.';
-
-        removeTokenKeysFromStorage(window.localStorage);
-        removeTokenKeysFromStorage(window.sessionStorage);
     }
 
     async function refreshAccessToken() {
@@ -112,24 +75,36 @@ export function useApiAuth() {
     }
 
     async function bootstrapAuth() {
-        const authTokensPayload = page.props?.auth?.api_tokens || {};
-        const resolvedToken = resolveAccessToken(authTokensPayload);
-
-        if (!resolvedToken || !resolvedToken.token) {
-            const refreshed = await refreshAccessToken();
-
-            if (!refreshed || !accessToken.value) {
-                authStatus.value = 'No valid API token found in window/localStorage/sessionStorage.';
-                return false;
-            }
-
-            return true;
+        if (bootstrapInFlight.value) {
+            return bootstrapInFlight.value;
         }
 
-        updateAccessToken(resolvedToken.token, resolvedToken.source);
-        authStatus.value = `Token source: ${resolvedToken.source}.`;
+        bootstrapInFlight.value = (async () => {
+            const authTokensPayload = page.props?.auth?.api_tokens || {};
+            const resolvedToken = resolveAccessToken(authTokensPayload);
 
-        return true;
+            if (!resolvedToken || !resolvedToken.token) {
+                const refreshed = await refreshAccessToken();
+
+                if (!refreshed || !accessToken.value) {
+                    authStatus.value = 'No valid API token found.';
+                    return false;
+                }
+
+                return true;
+            }
+
+            updateAccessToken(resolvedToken.token, resolvedToken.source);
+            authStatus.value = `Token source: ${resolvedToken.source}.`;
+
+            return true;
+        })();
+
+        try {
+            return await bootstrapInFlight.value;
+        } finally {
+            bootstrapInFlight.value = null;
+        }
     }
 
     async function fetchWithAuthorization(url, options = {}) {
