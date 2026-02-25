@@ -34,7 +34,19 @@ return Application::configure(basePath: dirname(__DIR__))
             RefreshTokenCookieService::COOKIE_NAME,
         ]);
         $middleware->redirectGuestsTo('/login');
-        $middleware->redirectUsersTo('/');
+        $middleware->redirectUsersTo(static function (Request $request): string {
+            $user = $request->user();
+
+            if ($user && method_exists($user, 'hasRole') && $user->hasRole('admin')) {
+                $configuredPath = trim((string) config('telescope.path', 'telescope'));
+
+                if ($configuredPath === '') {
+                    return '/telescope';
+                }
+                return '/'.ltrim($configuredPath, '/');
+            }
+            return '/';
+        });
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,

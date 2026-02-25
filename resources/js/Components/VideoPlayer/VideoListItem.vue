@@ -62,7 +62,9 @@ function handleDeleteAction() {
 }
 
 function handleToggleActionMenu(event) {
-    emit('toggle-action-menu', props.video.id, event);
+    const triggerElement = event?.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+
+    emit('toggle-action-menu', props.video.id, triggerElement);
 }
 </script>
 

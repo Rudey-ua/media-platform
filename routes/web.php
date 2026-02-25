@@ -22,6 +22,10 @@ Route::middleware(['auth', 'role:owner'])->group(function (): void {
     Route::get('/profile/video-access', [ProfileController::class, 'videoAccess'])->name('profile.video-access');
 });
 
+Route::middleware(['auth', 'role:admin'])->group(function (): void {
+    Route::get('/admin/logout', [AuthController::class, 'logoutAdmin'])->name('admin.logout');
+});
+
 Route::middleware('auth')->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 });

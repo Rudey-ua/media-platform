@@ -64,21 +64,20 @@ function handleDeleteVideo(videoId) {
     emit('delete-video', videoId);
 }
 
-function handleToggleActionMenu(videoId, event) {
+function handleToggleActionMenu(videoId, triggerElement) {
     const normalizedVideoId = String(videoId ?? '');
-    const triggerElement = event?.currentTarget instanceof HTMLElement ? event.currentTarget : null;
 
     toggleActionMenu(normalizedVideoId, triggerElement);
 }
 </script>
 
 <template>
-    <aside ref="rootElement" class="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm">
+    <aside ref="rootElement" class="flex h-[420px] max-h-[70vh] flex-col overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm">
         <div class="border-b border-gray-100 px-5 py-4">
             <h2 class="text-base font-semibold text-gray-900">Your videos</h2>
         </div>
 
-        <div ref="scrollContainerElement" class="max-h-[70vh] overflow-y-auto p-2">
+        <div ref="scrollContainerElement" class="min-h-0 flex-1 overflow-y-auto p-2">
             <Transition name="fade" mode="out-in">
                 <ApiLoadingState
                     v-if="props.isVideoListLoading && props.videoItems.length === 0"

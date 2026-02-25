@@ -37,12 +37,17 @@ export function useVideoActionMenu({
         const containerRect = scrollContainerElement.value.getBoundingClientRect();
         const availableSpaceBelow = containerRect.bottom - triggerRect.bottom;
         const availableSpaceAbove = triggerRect.top - containerRect.top;
+        const canOpenDown = availableSpaceBelow >= ACTION_MENU_ESTIMATED_HEIGHT_PX;
+        const canOpenUp = availableSpaceAbove >= ACTION_MENU_ESTIMATED_HEIGHT_PX;
 
-        if (availableSpaceBelow < ACTION_MENU_ESTIMATED_HEIGHT_PX && availableSpaceAbove > availableSpaceBelow) {
-            return 'up';
+        if (canOpenDown) {
+            return 'down';
         }
 
-        return 'down';
+        if (canOpenUp) {
+            return 'up';
+        }
+        return availableSpaceAbove > availableSpaceBelow ? 'up' : 'down';
     }
 
     function toggleActionMenu(videoId, triggerElement) {

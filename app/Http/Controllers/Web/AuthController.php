@@ -38,9 +38,9 @@ class AuthController extends Controller
             return back()->withErrors(['email' => 'Invalid credentials'])->onlyInput('email');
         }
 
-        if (! $authSessionData->user->hasAnyRole(['owner', 'member'])) {
+        if (! $authSessionData->user->hasAnyRole(['owner', 'member', 'admin'])) {
             $authSessionData->user->refreshTokens()->delete();
-            return back()->withErrors(['email' => 'Access is allowed only for owner and member users'])->onlyInput('email');
+            return back()->withErrors(['email' => 'Access is allowed only for admin, owner, and member users'])->onlyInput('email');
         }
         Auth::guard('web')->login($authSessionData->user, $request->boolean('remember'));
 
@@ -51,22 +51,21 @@ class AuthController extends Controller
                 user: $authSessionData->user,
             ),
         );
-        return redirect()->intended(route('player.home'))->withCookie($this->refreshTokenCookieService->make($authSessionData->refreshToken));
+        $defaultRedirectPath = $authSessionData->user->hasRole('admin')
+            ? $this->telescopePath()
+            : route('player.home');
+
+        return redirect()->intended($defaultRedirectPath)->withCookie($this->refreshTokenCookieService->make($authSessionData->refreshToken));
     }
 
     public function logout(Request $request): RedirectResponse
     {
-        $user = $request->user();
+        return $this->performLogout($request);
+    }
 
-        if ($user instanceof User) {
-            $user->refreshTokens()->delete();
-        }
-        Auth::guard('web')->logout();
-
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        return redirect()->route('login')->withCookie($this->refreshTokenCookieService->forget());
+    public function logoutAdmin(Request $request): RedirectResponse
+    {
+        return $this->performLogout($request);
     }
 
     /**
@@ -82,5 +81,30 @@ class AuthController extends Controller
             'token_type' => 'bearer',
             'expires_in' => $guard->factory()->getTTL() * 60,
         ];
+    }
+
+    private function telescopePath(): string
+    {
+        $configuredPath = trim((string) config('telescope.path', 'telescope'));
+
+        if ($configuredPath === '') {
+            return '/telescope';
+        }
+        return '/'.ltrim($configuredPath, '/');
+    }
+
+    private function performLogout(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        if ($user instanceof User) {
+            $user->refreshTokens()->delete();
+        }
+        Auth::guard('web')->logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login')->withCookie($this->refreshTokenCookieService->forget());
     }
 }
