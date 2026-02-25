@@ -1,11 +1,11 @@
-import { isAccessTokenExpired } from './jwtUtils.js';
+import { isAccessTokenExpired } from './jwtExpiry.js';
 import {
     accessTokenFromObject,
     normalizeAccessToken,
     normalizeRefreshToken,
     refreshTokenFromObject,
 } from './tokenParsers.js';
-import { safeWindow } from './windowUtils.js';
+import { safeWindow } from './browserWindow.js';
 
 function resolveTokenFromWindow(browserWindow) {
     const candidateTokens = [

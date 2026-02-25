@@ -5,9 +5,9 @@ import {
     accessTokenFromObject,
     isAccessTokenExpired,
     resolveAccessToken,
-} from './tokenUtils';
+} from './tokenAccess';
 
-export function useApiAuth() {
+export function useAuthSession() {
     const page = usePage();
     const accessToken = ref(null);
     const tokenSource = ref(null);

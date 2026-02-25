@@ -2,7 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppHeader from '../../Components/AppHeader.vue';
-import { useVideoUpload } from '../../Composables/useVideoUpload';
+import { useUploadPage } from '../../Composables/useUploadPage';
 
 const props = defineProps({
     videoPlayerUrl: {
@@ -28,7 +28,7 @@ const {
     videoTitle,
     setSelectedFile,
     startUpload,
-} = useVideoUpload();
+} = useUploadPage();
 
 const isDropzoneDragging = ref(false);
 const fileInputElement = ref(null);

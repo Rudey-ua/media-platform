@@ -37,14 +37,14 @@ async function ensureMetadataLoaded(videoElement) {
     });
 }
 
-export function createHlsPlaybackEngine({ getVideoElement, onFatalError, onPlaybackSessionExpired }) {
-    let hlsInstance = null;
+export function createPlaybackEngine({ getVideoElement, onFatalError, onPlaybackSessionExpired }) {
+    let playbackLibraryInstance = null;
     let playlistBlobUrl = null;
 
     function destroy() {
-        if (hlsInstance) {
-            hlsInstance.destroy();
-            hlsInstance = null;
+        if (playbackLibraryInstance) {
+            playbackLibraryInstance.destroy();
+            playbackLibraryInstance = null;
         }
 
         if (playlistBlobUrl) {
@@ -83,7 +83,7 @@ export function createHlsPlaybackEngine({ getVideoElement, onFatalError, onPlayb
                 enableWorker: true,
             });
 
-            hlsInstance = hls;
+            playbackLibraryInstance = hls;
             const source = playlistBlobUrl;
 
             await new Promise((resolve, reject) => {
@@ -137,7 +137,7 @@ export function createHlsPlaybackEngine({ getVideoElement, onFatalError, onPlayb
                         return;
                     }
 
-                    const errorMessage = `Fatal HLS error: ${data.details || data.type || 'unknown'}`;
+                    const errorMessage = `Fatal playback error: ${data.details || data.type || 'unknown'}`;
 
                     if (manifestParsed) {
                         if (isSettled) {

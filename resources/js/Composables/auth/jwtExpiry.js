@@ -1,4 +1,4 @@
-import { safeWindow } from './windowUtils.js';
+import { safeWindow } from './browserWindow.js';
 
 function decodeJwtPayload(token) {
     const browserWindow = safeWindow();

@@ -1,4 +1,4 @@
-export { isAccessTokenExpired } from './jwtUtils.js';
+export { isAccessTokenExpired } from './jwtExpiry.js';
 export {
     accessTokenFromObject,
     normalizeAccessToken,

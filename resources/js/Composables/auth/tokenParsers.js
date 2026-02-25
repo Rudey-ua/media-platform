@@ -1,4 +1,4 @@
-import { isAccessTokenExpired } from './jwtUtils.js';
+import { isAccessTokenExpired } from './jwtExpiry.js';
 
 const ACCESS_TOKEN_OBJECT_KEYS = ['access_token', 'accessToken', 'token', 'jwt', 'jwt_token'];
 const REFRESH_TOKEN_OBJECT_KEYS = ['refresh_token', 'refreshToken'];

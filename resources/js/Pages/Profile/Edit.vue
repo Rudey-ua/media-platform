@@ -4,7 +4,7 @@ import { onMounted, ref } from 'vue';
 import AppHeader from '../../Components/AppHeader.vue';
 import ApiLoadingState from '../../Components/ApiLoadingState.vue';
 import { API_BASE } from '../../Composables/api/apiBase';
-import { useApiAuth } from '../../Composables/auth/useApiAuth';
+import { useAuthSession } from '../../Composables/auth/useAuthSession';
 
 const props = defineProps({
     playerHomeUrl: {
@@ -41,7 +41,7 @@ const {
     bootstrapAuth,
     fetchWithAuthorization,
     clearAuthTokens,
-} = useApiAuth();
+} = useAuthSession();
 
 const profile = ref(null);
 const loadError = ref('');

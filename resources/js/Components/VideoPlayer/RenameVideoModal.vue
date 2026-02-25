@@ -1,5 +1,6 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
+import { useDialogFocusTrap } from '../../Composables/player/useDialogFocusTrap';
 
 const props = defineProps({
     isOpen: {
@@ -25,8 +26,6 @@ const emit = defineEmits(['cancel', 'confirm']);
 const titleDraft = ref('');
 const inputElement = ref(null);
 const dialogElement = ref(null);
-const lastFocusedElement = ref(null);
-const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 const canConfirm = computed(() => {
     if (props.isRenaming) {
@@ -35,90 +34,6 @@ const canConfirm = computed(() => {
 
     return titleDraft.value.trim() !== props.initialTitle.trim();
 });
-
-function trapTabFocus(event) {
-    if (!(dialogElement.value instanceof HTMLElement)) {
-        return;
-    }
-
-    const focusableElements = Array.from(dialogElement.value.querySelectorAll(FOCUSABLE_SELECTOR))
-        .filter((element) => element instanceof HTMLElement);
-
-    if (focusableElements.length === 0) {
-        event.preventDefault();
-        dialogElement.value.focus();
-        return;
-    }
-
-    const firstFocusableElement = focusableElements[0];
-    const lastFocusableElement = focusableElements[focusableElements.length - 1];
-    const activeElement = document.activeElement;
-
-    if (event.shiftKey && activeElement === firstFocusableElement) {
-        event.preventDefault();
-        lastFocusableElement.focus();
-        return;
-    }
-
-    if (!event.shiftKey && activeElement === lastFocusableElement) {
-        event.preventDefault();
-        firstFocusableElement.focus();
-    }
-}
-
-function handleDialogKeyDown(event) {
-    if (!props.isOpen) {
-        return;
-    }
-
-    if (event.key === 'Escape') {
-        event.preventDefault();
-        handleEscape();
-        return;
-    }
-
-    if (event.key === 'Tab') {
-        trapTabFocus(event);
-    }
-}
-
-watch(
-    () => [props.isOpen, props.initialTitle],
-    async ([isOpen], [wasOpen] = []) => {
-        if (isOpen && !wasOpen && document.activeElement instanceof HTMLElement) {
-            lastFocusedElement.value = document.activeElement;
-        }
-
-        if (!isOpen && wasOpen) {
-            window.removeEventListener('keydown', handleDialogKeyDown);
-
-            if (lastFocusedElement.value instanceof HTMLElement) {
-                lastFocusedElement.value.focus();
-            }
-
-            lastFocusedElement.value = null;
-            return;
-        }
-
-        if (!isOpen) {
-            return;
-        }
-
-        window.addEventListener('keydown', handleDialogKeyDown);
-        titleDraft.value = props.initialTitle;
-        await nextTick();
-
-        if (inputElement.value instanceof HTMLInputElement) {
-            inputElement.value.focus();
-            inputElement.value.select();
-            return;
-        }
-        if (dialogElement.value instanceof HTMLElement) {
-            dialogElement.value.focus();
-        }
-    },
-    { immediate: true },
-);
 
 function cancel() {
     emit('cancel');
@@ -132,8 +47,48 @@ function confirm() {
     emit('confirm', titleDraft.value);
 }
 
+function canCloseDialog() {
+    return !props.isRenaming;
+}
+
+watch(
+    () => props.initialTitle,
+    (initialTitle) => {
+        if (props.isOpen) {
+            titleDraft.value = initialTitle;
+        }
+    },
+);
+
+useDialogFocusTrap({
+    isOpen() {
+        return props.isOpen;
+    },
+    dialogElement,
+    canClose: canCloseDialog,
+    onClose: cancel,
+    onOpen() {
+        titleDraft.value = props.initialTitle;
+
+        nextTick(() => {
+            if (inputElement.value instanceof HTMLInputElement) {
+                inputElement.value.focus();
+                inputElement.value.select();
+                return;
+            }
+
+            if (dialogElement.value instanceof HTMLElement) {
+                dialogElement.value.focus();
+            }
+        });
+    },
+    onClosed() {
+        return null;
+    },
+});
+
 function handleOverlayClick(event) {
-    if (props.isRenaming) {
+    if (!canCloseDialog()) {
         return;
     }
 
@@ -141,16 +96,6 @@ function handleOverlayClick(event) {
         cancel();
     }
 }
-
-function handleEscape() {
-    if (!props.isRenaming) {
-        cancel();
-    }
-}
-
-onBeforeUnmount(() => {
-    window.removeEventListener('keydown', handleDialogKeyDown);
-});
 </script>
 
 <template>

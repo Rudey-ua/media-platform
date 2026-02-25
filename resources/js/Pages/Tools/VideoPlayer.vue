@@ -5,7 +5,7 @@ import DeleteVideoModal from '../../Components/VideoPlayer/DeleteVideoModal.vue'
 import PlayerSurfacePanel from '../../Components/VideoPlayer/PlayerSurfacePanel.vue';
 import RenameVideoModal from '../../Components/VideoPlayer/RenameVideoModal.vue';
 import VideoListPanel from '../../Components/VideoPlayer/VideoListPanel.vue';
-import { useVideoPlayer } from '../../Composables/useVideoPlayer';
+import { usePlayerPage } from '../../Composables/usePlayerPage';
 
 const props = defineProps({
     videoUploadUrl: {
@@ -47,11 +47,11 @@ const {
     cancelVideoRename,
     confirmVideoRename,
     setVideoElement,
-} = useVideoPlayer();
+} = usePlayerPage();
 </script>
 
 <template>
-    <Head title="HLS Player" />
+    <Head title="Video Player" />
 
     <main class="min-h-screen bg-gray-50">
         <AppHeader :profile-url="props.profileUrl" />

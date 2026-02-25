@@ -1,28 +1,28 @@
 import { computed, onMounted, ref } from 'vue';
 import { API_BASE } from './api/apiBase';
-import { useApiAuth } from './auth/useApiAuth';
+import { useAuthSession } from './auth/useAuthSession';
 import {
     formatBytes,
     formatTimeRemaining,
     formatTransferRate,
     validateVideoFile,
-} from './video/uploadFileUtils';
+} from './video/uploadFileSupport';
 import {
     completeVideoUpload,
     initializeVideoUpload,
     uploadFileToSignedUrl,
-} from './video/uploadApi';
+} from './video/uploadApiClient';
 
 const SPEED_SMOOTHING_FACTOR = 0.25;
 
-export function useVideoUpload() {
+export function useUploadPage() {
     const {
         authStatus,
         hasAccessToken,
         tokenSource,
         fetchWithAuthorization,
         bootstrapAuth,
-    } = useApiAuth();
+    } = useAuthSession();
 
     const selectedFile = ref(null);
     const videoTitle = ref('');

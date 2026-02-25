@@ -5,7 +5,7 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
-        "test:frontend": "node --test resources/js/Composables/auth/tokenUtils.test.js resources/js/Composables/video/uploadFileUtils.test.js resources/js/Composables/video/playerPresentation.test.js"
+        "test:frontend": "node --test resources/js/Composables/auth/tokenAccess.test.js resources/js/Composables/video/uploadFileSupport.test.js resources/js/Composables/video/playerViewModel.test.js"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",

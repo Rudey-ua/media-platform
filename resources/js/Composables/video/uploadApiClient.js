@@ -1,4 +1,4 @@
-import { extractApiErrorMessage, guessContentType } from './uploadFileUtils';
+import { extractApiErrorMessage, guessContentType } from './uploadFileSupport';
 
 const FORBIDDEN_UPLOAD_HEADERS = new Set(['host', 'content-length']);
 

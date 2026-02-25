@@ -4,7 +4,7 @@ import { onMounted, ref } from 'vue';
 import AppHeader from '../../Components/AppHeader.vue';
 import ApiLoadingState from '../../Components/ApiLoadingState.vue';
 import { API_BASE } from '../../Composables/api/apiBase';
-import { useApiAuth } from '../../Composables/auth/useApiAuth';
+import { useAuthSession } from '../../Composables/auth/useAuthSession';
 
 const props = defineProps({
     profileUrl: {
@@ -24,7 +24,7 @@ const props = defineProps({
 const {
     bootstrapAuth,
     fetchWithAuthorization,
-} = useApiAuth();
+} = useAuthSession();
 
 const isLoadingMembers = ref(true);
 const isCreatingMember = ref(false);
