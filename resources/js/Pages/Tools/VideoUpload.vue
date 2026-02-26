@@ -295,7 +295,7 @@ function handleDrop(event) {
                         id="video-file"
                         ref="fileInputElement"
                         type="file"
-                        accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/mp2t,.ts"
+                        accept=".mp4,.mov,.avi,.mkv,.ts,video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/mp2t"
                         class="hidden"
                         :disabled="isUploading"
                         @change="handleFileChange"
