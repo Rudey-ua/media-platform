@@ -1,20 +1,20 @@
 {
-  "__plugin-vue_export-helper-DN9apLPg.js": {
-    "file": "assets/_plugin-vue_export-helper-DN9apLPg.js",
+  "__plugin-vue_export-helper-D9P9_KMU.js": {
+    "file": "assets/_plugin-vue_export-helper-D9P9_KMU.js",
     "name": "_plugin-vue_export-helper",
     "imports": [
       "resources/js/app.js"
     ]
   },
-  "_useAuthSession-Dj7TIpXP.js": {
-    "file": "assets/useAuthSession-Dj7TIpXP.js",
+  "_useAuthSession-u3hAYNg7.js": {
+    "file": "assets/useAuthSession-u3hAYNg7.js",
     "name": "useAuthSession",
     "imports": [
       "resources/js/app.js"
     ]
   },
   "resources/js/Pages/Auth/Login.vue": {
-    "file": "assets/Login-DPzBGJXh.js",
+    "file": "assets/Login-DbF40CSl.js",
     "name": "Login",
     "src": "resources/js/Pages/Auth/Login.vue",
     "isDynamicEntry": true,
@@ -23,87 +23,87 @@
     ]
   },
   "resources/js/Pages/Profile/Edit.vue": {
-    "file": "assets/Edit-DqtTlDXd.js",
+    "file": "assets/Edit-BLHnIivm.js",
     "name": "Edit",
     "src": "resources/js/Pages/Profile/Edit.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_useAuthSession-Dj7TIpXP.js",
-      "__plugin-vue_export-helper-DN9apLPg.js"
+      "_useAuthSession-u3hAYNg7.js",
+      "__plugin-vue_export-helper-D9P9_KMU.js"
     ],
     "css": [
       "assets/Edit-fsm1rIr-.css"
     ]
   },
   "resources/js/Pages/Profile/EditName.vue": {
-    "file": "assets/EditName-B2mBfOJz.js",
+    "file": "assets/EditName-jK8eAo5-.js",
     "name": "EditName",
     "src": "resources/js/Pages/Profile/EditName.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_useAuthSession-Dj7TIpXP.js",
-      "__plugin-vue_export-helper-DN9apLPg.js"
+      "_useAuthSession-u3hAYNg7.js",
+      "__plugin-vue_export-helper-D9P9_KMU.js"
     ],
     "css": [
       "assets/EditName-DORK14Ft.css"
     ]
   },
   "resources/js/Pages/Profile/Members.vue": {
-    "file": "assets/Members-hucUXj8W.js",
+    "file": "assets/Members-Ccv_2HhT.js",
     "name": "Members",
     "src": "resources/js/Pages/Profile/Members.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_useAuthSession-Dj7TIpXP.js",
-      "__plugin-vue_export-helper-DN9apLPg.js"
+      "_useAuthSession-u3hAYNg7.js",
+      "__plugin-vue_export-helper-D9P9_KMU.js"
     ],
     "css": [
       "assets/Members-CCVnnOp0.css"
     ]
   },
   "resources/js/Pages/Profile/VideoAccess.vue": {
-    "file": "assets/VideoAccess-C_snGF1I.js",
+    "file": "assets/VideoAccess-C3FIdrQj.js",
     "name": "VideoAccess",
     "src": "resources/js/Pages/Profile/VideoAccess.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_useAuthSession-Dj7TIpXP.js",
-      "__plugin-vue_export-helper-DN9apLPg.js"
+      "_useAuthSession-u3hAYNg7.js",
+      "__plugin-vue_export-helper-D9P9_KMU.js"
     ],
     "css": [
       "assets/VideoAccess-BGnC5FaG.css"
     ]
   },
   "resources/js/Pages/Tools/VideoPlayer.vue": {
-    "file": "assets/VideoPlayer-B-_dBm8o.js",
+    "file": "assets/VideoPlayer-DYd-dgbD.js",
     "name": "VideoPlayer",
     "src": "resources/js/Pages/Tools/VideoPlayer.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_useAuthSession-Dj7TIpXP.js",
-      "__plugin-vue_export-helper-DN9apLPg.js"
+      "_useAuthSession-u3hAYNg7.js",
+      "__plugin-vue_export-helper-D9P9_KMU.js"
     ],
     "css": [
       "assets/VideoPlayer-DTYWJwQi.css"
     ]
   },
   "resources/js/Pages/Tools/VideoUpload.vue": {
-    "file": "assets/VideoUpload-BR0EciZA.js",
+    "file": "assets/VideoUpload-De_E5G2Z.js",
     "name": "VideoUpload",
     "src": "resources/js/Pages/Tools/VideoUpload.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_useAuthSession-Dj7TIpXP.js"
+      "_useAuthSession-u3hAYNg7.js"
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-Czuk6c8a.js",
+    "file": "assets/app--jZAi4VJ.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
