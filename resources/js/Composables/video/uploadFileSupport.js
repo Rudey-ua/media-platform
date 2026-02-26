@@ -1,6 +1,21 @@
 export const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 * 1024;
 
 const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'avi', 'mkv', 'ts']);
+const VIDEO_EXTENSION_TO_CONTENT_TYPE = {
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    avi: 'video/x-msvideo',
+    mkv: 'video/x-matroska',
+    ts: 'video/mp2t',
+};
+const VIDEO_CONTENT_TYPE_ALIASES = new Map([
+    ['video/matroska', 'video/x-matroska'],
+    ['video/mkv', 'video/x-matroska'],
+]);
+const SUPPORTED_VIDEO_CONTENT_TYPES = new Set([
+    ...Object.values(VIDEO_EXTENSION_TO_CONTENT_TYPE),
+    ...VIDEO_CONTENT_TYPE_ALIASES.keys(),
+]);
 
 function isFileLike(value) {
     return value !== null
@@ -83,19 +98,24 @@ export function formatTimeRemaining(totalSeconds) {
 }
 
 export function guessContentType(file) {
-    if (typeof file?.type === 'string' && file.type.startsWith('video/')) {
-        return file.type;
+    const extension = file?.name?.split('.').pop()?.toLowerCase();
+    if (extension && extension in VIDEO_EXTENSION_TO_CONTENT_TYPE) {
+        return VIDEO_EXTENSION_TO_CONTENT_TYPE[extension];
     }
 
-    const extension = file?.name?.split('.').pop()?.toLowerCase();
+    if (typeof file?.type === 'string') {
+        const normalizedContentType = file.type.trim().toLowerCase();
 
-    return {
-        mp4: 'video/mp4',
-        mov: 'video/quicktime',
-        avi: 'video/x-msvideo',
-        mkv: 'video/x-matroska',
-        ts: 'video/mp2t',
-    }[extension] ?? 'video/mp4';
+        if (VIDEO_CONTENT_TYPE_ALIASES.has(normalizedContentType)) {
+            return VIDEO_CONTENT_TYPE_ALIASES.get(normalizedContentType) ?? 'video/mp4';
+        }
+
+        if (SUPPORTED_VIDEO_CONTENT_TYPES.has(normalizedContentType)) {
+            return normalizedContentType;
+        }
+    }
+
+    return 'video/mp4';
 }
 
 export function extractApiErrorMessage(payload, fallbackMessage) {
@@ -129,17 +149,17 @@ export function validateVideoFile(file, options = {}) {
         throw new Error('Selected file is larger than 20 GB limit.');
     }
 
-    const fileType = typeof file.type === 'string' ? file.type.trim() : '';
-
-    if (fileType.startsWith('video/')) {
-        return;
-    }
-
     const extension = file.name.split('.').pop()?.toLowerCase();
 
     if (extension && VIDEO_EXTENSIONS.has(extension)) {
         return;
     }
 
-    throw new Error('Only video files are allowed.');
+    const fileType = typeof file.type === 'string' ? file.type.trim().toLowerCase() : '';
+
+    if (SUPPORTED_VIDEO_CONTENT_TYPES.has(fileType)) {
+        return;
+    }
+
+    throw new Error('Only MP4, MOV, AVI, MKV, and TS files are allowed.');
 }

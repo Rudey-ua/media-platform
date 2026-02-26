@@ -6,6 +6,19 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class InitiateUploadRequest extends FormRequest
 {
+    /**
+     * @var list<string>
+     */
+    private const ALLOWED_CONTENT_TYPES = [
+        'video/mp4',
+        'video/quicktime',
+        'video/x-msvideo',
+        'video/x-matroska',
+        'video/matroska',
+        'video/mkv',
+        'video/mp2t',
+    ];
+
     public function authorize(): bool
     {
         return true;
@@ -16,7 +29,7 @@ class InitiateUploadRequest extends FormRequest
         return [
             'file_name' => ['required', 'string', 'max:255'],
             'file_size' => ['required', 'integer', 'min:1', 'max:21474836480'],
-            'content_type' => ['required', 'string', 'in:video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/mp2t'],
+            'content_type' => ['required', 'string', 'in:'.implode(',', self::ALLOWED_CONTENT_TYPES)],
             'title' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
@@ -24,7 +37,7 @@ class InitiateUploadRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'content_type.in' => 'The content type must be one of: video/mp4, video/quicktime, video/x-msvideo, video/x-matroska, video/mp2t.',
+            'content_type.in' => 'The content type must be one of: '.implode(', ', self::ALLOWED_CONTENT_TYPES).'.',
         ];
     }
 

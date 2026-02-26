@@ -606,6 +606,8 @@ readonly class VideoService
             'video/quicktime' => 'mov',
             'video/x-msvideo' => 'avi',
             'video/x-matroska' => 'mkv',
+            'video/matroska' => 'mkv',
+            'video/mkv' => 'mkv',
             'video/mp2t' => 'ts',
         ];
         $normalizedContentType = strtolower(trim($contentType));

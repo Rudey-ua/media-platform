@@ -18,7 +18,12 @@ final class VideoController
                 properties: [
                     new OA\Property(property: 'file_name', type: 'string', example: 'big-movie.mp4'),
                     new OA\Property(property: 'file_size', type: 'integer', example: 1073741824),
-                    new OA\Property(property: 'content_type', type: 'string', example: 'video/mp4'),
+                    new OA\Property(
+                        property: 'content_type',
+                        type: 'string',
+                        enum: ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska', 'video/matroska', 'video/mkv', 'video/mp2t'],
+                        example: 'video/mp4',
+                    ),
                 ],
                 type: 'object',
             ),
