@@ -21,9 +21,9 @@ use Throwable;
 
 readonly class VideoService
 {
-    private const int TEMPORARY_UPLOAD_URL_TTL_MINUTES = 20;
+    private const int TEMPORARY_UPLOAD_URL_TTL_MINUTES = 60;
 
-    private const int SOURCE_DOWNLOAD_URL_TTL_MINUTES = 180;
+    private const int SOURCE_DOWNLOAD_URL_TTL_MINUTES = 360;
 
     public function __construct(private PlaybackService $playbackService) {}
 
