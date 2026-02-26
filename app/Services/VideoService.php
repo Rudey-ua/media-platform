@@ -354,6 +354,10 @@ readonly class VideoService
 
     private function markAsReady(Video $video, array $payload): Video
     {
+        if ($this->isReadyByStatus($video)) {
+            return $video->fresh() ?? $video;
+        }
+
         $rawPlaylistPath = (string) ($payload['hls']['playlist'] ?? '');
         $normalizedPlaylistPath = $this->playbackService->normalizeStoredPlaylistPath($rawPlaylistPath);
 
@@ -368,6 +372,15 @@ readonly class VideoService
 
     private function markAsFailed(Video $video, array $payload): Video
     {
+        if ($this->isReadyEquivalentForFailureHandling($video)) {
+            Log::warning('Ignored stale failed webhook for already ready video', [
+                'video_id' => $this->videoIdentifier($video),
+                'current_status' => $this->currentStatusValue($video),
+                'incoming_status' => (string) ($payload['status'] ?? 'failed'),
+            ]);
+            return $video->fresh() ?? $video;
+        }
+
         $video->update([
             'status' => VideoStatus::Failed,
             'hls_path' => null,
@@ -375,6 +388,29 @@ readonly class VideoService
         ]);
 
         return $video->fresh() ?? $video;
+    }
+
+    private function isReadyByStatus(Video $video): bool
+    {
+        return in_array($this->currentStatusValue($video), ['ready', 'processed'], true);
+    }
+
+    private function isReadyEquivalentForFailureHandling(Video $video): bool
+    {
+        if ($this->isReadyByStatus($video)) {
+            return true;
+        }
+        return is_string($video->hls_path) && trim($video->hls_path) !== '';
+    }
+
+    private function currentStatusValue(Video $video): string
+    {
+        $status = $video->getRawOriginal('status');
+
+        if (is_string($status) && $status !== '') {
+            return strtolower($status);
+        }
+        return '';
     }
 
     private function dispatchVideoForEncoding(Video $video): Video
@@ -674,6 +710,7 @@ readonly class VideoService
                     status: Response::HTTP_INTERNAL_SERVER_ERROR,
                 );
             }
+
             return;
         }
         $filesystem->deleteDirectory($outputDirectory);
