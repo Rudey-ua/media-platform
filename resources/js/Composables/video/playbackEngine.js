@@ -40,8 +40,36 @@ async function ensureMetadataLoaded(videoElement) {
 export function createPlaybackEngine({ getVideoElement, onFatalError, onPlaybackSessionExpired }) {
     let playbackLibraryInstance = null;
     let playlistBlobUrl = null;
+    let runtimeSessionRefreshRequested = false;
+
+    function readPlaybackState(videoElement) {
+        if (!(videoElement instanceof HTMLVideoElement)) {
+            return {
+                resumeTime: 0,
+                autoplay: true,
+            };
+        }
+
+        return {
+            resumeTime: Number.isFinite(videoElement.currentTime) ? videoElement.currentTime : 0,
+            autoplay: !videoElement.paused,
+        };
+    }
+
+    function requestSessionRefresh(videoElement) {
+        if (runtimeSessionRefreshRequested) {
+            return;
+        }
+
+        runtimeSessionRefreshRequested = true;
+        const playbackState = readPlaybackState(videoElement);
+        destroy();
+        onPlaybackSessionExpired?.(playbackState);
+    }
 
     function destroy() {
+        runtimeSessionRefreshRequested = false;
+
         if (playbackLibraryInstance) {
             playbackLibraryInstance.destroy();
             playbackLibraryInstance = null;
@@ -63,6 +91,7 @@ export function createPlaybackEngine({ getVideoElement, onFatalError, onPlayback
 
     async function attachPlaylist(playlistText, options = {}) {
         destroy();
+        runtimeSessionRefreshRequested = false;
 
         const requestedResumeTime = Number(options.resumeTime);
         const resumeTime = Number.isFinite(requestedResumeTime) && requestedResumeTime > 0 ? requestedResumeTime : 0;
@@ -121,20 +150,6 @@ export function createPlaybackEngine({ getVideoElement, onFatalError, onPlayback
                             reject(new Error('Playback session expired.'));
                             return;
                         }
-
-                        const playbackState = {
-                            resumeTime: Number.isFinite(currentVideoElement.currentTime) ? currentVideoElement.currentTime : 0,
-                            autoplay: !currentVideoElement.paused,
-                        };
-
-                        if (isSettled) {
-                            return;
-                        }
-                        isSettled = true;
-                        cleanup();
-                        destroy();
-                        onPlaybackSessionExpired?.(playbackState);
-                        return;
                     }
 
                     const errorMessage = `Fatal playback error: ${data.details || data.type || 'unknown'}`;
@@ -175,6 +190,30 @@ export function createPlaybackEngine({ getVideoElement, onFatalError, onPlayback
                 hls.on(Hls.Events.MANIFEST_PARSED, onManifestParsed);
                 hls.attachMedia(currentVideoElement);
             });
+
+            const onRuntimeError = (_event, data) => {
+                if (!data) {
+                    return;
+                }
+
+                const statusCode = extractHttpStatusCode(data);
+
+                if (statusCode === 401 || statusCode === 403) {
+                    requestSessionRefresh(currentVideoElement);
+                    return;
+                }
+
+                if (!data.fatal) {
+                    return;
+                }
+
+                const errorMessage = `Fatal playback error: ${data.details || data.type || 'unknown'}`;
+
+                destroy();
+                onFatalError(errorMessage);
+            };
+
+            hls.on(Hls.Events.ERROR, onRuntimeError);
         } else if (currentVideoElement.canPlayType('application/vnd.apple.mpegurl')) {
             await new Promise((resolve, reject) => {
                 let isSettled = false;

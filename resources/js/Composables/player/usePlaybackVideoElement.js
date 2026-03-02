@@ -3,8 +3,14 @@ import { ref, watch } from 'vue';
 export function usePlaybackVideoElement({ onVideoElementError }) {
     const videoElement = ref(null);
 
-    const handleVideoElementError = () => {
-        onVideoElementError();
+    const handleVideoElementError = (event) => {
+        const target = event?.target;
+        const mediaError = target instanceof HTMLVideoElement ? target.error : null;
+
+        onVideoElementError({
+            code: Number.isFinite(mediaError?.code) ? mediaError.code : null,
+            message: typeof mediaError?.message === 'string' ? mediaError.message : '',
+        });
     };
 
     watch(videoElement, (currentElement, previousElement) => {

@@ -16,14 +16,37 @@ export function usePlaybackState({
     const isPlaybackLoading = ref(false);
     const isPlaybackSessionRefreshing = ref(false);
 
+    function formatVideoElementError(details) {
+        if (!details || typeof details !== 'object') {
+            return 'Video element reported a playback error.';
+        }
+
+        const errorCode = Number(details.code);
+        const mediaErrorCodeLabelMap = {
+            1: 'MEDIA_ERR_ABORTED',
+            2: 'MEDIA_ERR_NETWORK',
+            3: 'MEDIA_ERR_DECODE',
+            4: 'MEDIA_ERR_SRC_NOT_SUPPORTED',
+        };
+        const mediaErrorLabel = mediaErrorCodeLabelMap[errorCode];
+
+        if (typeof mediaErrorLabel === 'string') {
+            return `Video element reported a playback error (${mediaErrorLabel}).`;
+        }
+
+        return 'Video element reported a playback error.';
+    }
+
     const videoElementState = usePlaybackVideoElement({
-        onVideoElementError() {
+        onVideoElementError(errorDetails) {
             if (!isPlaybackLoading.value) {
                 playingVideoId.value = null;
-                setPlayerStatus('Playback failed. Video element reported an error.');
+                const videoElementErrorMessage = formatVideoElementError(errorDetails);
+
+                setPlayerStatus(`Playback failed. ${videoElementErrorMessage}`);
                 setPlayerSurfaceMode('message', {
                     title: 'Playback failed',
-                    description: 'Video element reported a playback error.',
+                    description: videoElementErrorMessage,
                     variant: 'error',
                 });
             }
